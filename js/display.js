@@ -26,6 +26,7 @@ let taskSetHeightPx = 0;
 let activeMode = 'announcements';
 let interleaveMode = false;
 let announcementIndex = 0;
+let lastTasksSignature = '';
 
 const connectionScreen = document.getElementById('connection-screen');
 const appContent = document.getElementById('app-content');
@@ -236,8 +237,19 @@ function showTasks(tasks) {
         return;
     }
 
-    taskPages = chunkTasks(tasksQueue, TASKS_PER_PAGE);
-    currentTaskPageIndex = 0;
+    const nextPages = chunkTasks(tasksQueue, TASKS_PER_PAGE);
+    const nextSignature = buildTasksSignature(tasksQueue);
+
+    const tasksChanged = nextSignature !== lastTasksSignature;
+    taskPages = nextPages;
+    lastTasksSignature = nextSignature;
+
+    if (tasksChanged) {
+        currentTaskPageIndex = 0;
+    } else if (taskPages.length > 0) {
+        currentTaskPageIndex = currentTaskPageIndex % taskPages.length;
+    }
+
     startTaskPageRoll();
 }
 
@@ -367,6 +379,12 @@ function chunkTasks(items, size) {
         output.push(items.slice(i, i + size));
     }
     return output;
+}
+
+function buildTasksSignature(tasks) {
+    return tasks
+        .map((task) => `${task.id || ''}:${task.text || ''}:${task.completed ? '1' : '0'}`)
+        .join('|');
 }
 
 window.onload = initDisplay;
