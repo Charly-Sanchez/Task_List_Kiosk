@@ -252,19 +252,28 @@ function renderTaskRoulette(tasks, rebuild) {
     if (rebuild) {
         tvTasks.innerHTML = '';
 
-        const firstSet = document.createElement('div');
-        firstSet.className = 'tasks-track-set';
+        const firstSet = buildTaskCycle(tasks);
+        tvTasks.appendChild(firstSet);
 
-        tasks.forEach((task, index) => {
-            firstSet.appendChild(createTaskCard(task, index + 1));
+        tvTasks.style.transform = 'translateY(0px)';
+
+        requestAnimationFrame(() => {
+            const viewportHeight = tvTasks.parentElement ? tvTasks.parentElement.clientHeight : 0;
+            const cycleHeight = firstSet.offsetHeight || 1;
+            const extraCopies = Math.max(2, Math.ceil((viewportHeight * 2) / cycleHeight) + 1);
+
+            for (let i = 0; i < extraCopies; i += 1) {
+                tvTasks.appendChild(firstSet.cloneNode(true));
+            }
+
+            taskSetHeightPx = cycleHeight;
+            taskOffsetPx = taskOffsetPx % taskSetHeightPx;
+            tvTasks.style.transform = `translateY(-${taskOffsetPx}px)`;
+            taskRollLastTs = 0;
+            taskRollRafId = requestAnimationFrame(stepTaskMarquee);
         });
 
-        const secondSet = firstSet.cloneNode(true);
-        tvTasks.appendChild(firstSet);
-        tvTasks.appendChild(secondSet);
-
-        taskOffsetPx = 0;
-        tvTasks.style.transform = 'translateY(0px)';
+        return;
     }
 
     requestAnimationFrame(() => {
@@ -272,9 +281,24 @@ function renderTaskRoulette(tasks, rebuild) {
         if (!firstSet) return;
 
         taskSetHeightPx = firstSet.offsetHeight;
+        if (taskSetHeightPx > 0) {
+            taskOffsetPx = taskOffsetPx % taskSetHeightPx;
+            tvTasks.style.transform = `translateY(-${taskOffsetPx}px)`;
+        }
         taskRollLastTs = 0;
         taskRollRafId = requestAnimationFrame(stepTaskMarquee);
     });
+}
+
+function buildTaskCycle(tasks) {
+    const cycle = document.createElement('div');
+    cycle.className = 'tasks-track-set';
+
+    tasks.forEach((task, index) => {
+        cycle.appendChild(createTaskCard(task, index + 1));
+    });
+
+    return cycle;
 }
 
 function stepTaskMarquee(timestamp) {
