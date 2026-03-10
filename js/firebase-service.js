@@ -2,15 +2,18 @@ import { initializeApp, getApps } from 'https://www.gstatic.com/firebasejs/10.12
 import { getAuth, signInAnonymously } from 'https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js';
 import {
     collection,
+    deleteDoc,
     doc,
     getFirestore,
+    getDocs,
     limit,
     onSnapshot,
     orderBy,
     query,
     runTransaction,
     serverTimestamp,
-    setDoc
+    setDoc,
+    writeBatch
 } from 'https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js';
 import { firebaseConfig, isFirebaseConfigured } from './firebase-config.js';
 
@@ -147,4 +150,30 @@ export async function mutateKioskState(tvId, actorId, mutateFn) {
             createdAt: serverTimestamp()
         });
     });
+}
+
+export async function resetKioskState(tvId) {
+    const { db: dbInstance } = ensureInitialized();
+    const kioskRef = doc(dbInstance, 'kiosks', tvId);
+
+    await setDoc(
+        kioskRef,
+        {
+            ...getDefaultState(),
+            updatedAt: serverTimestamp(),
+            updatedBy: 'reset'
+        },
+        { merge: true }
+    );
+
+    const historyRef = collection(dbInstance, 'kiosks', tvId, 'history');
+
+    while (true) {
+        const snapshot = await getDocs(query(historyRef, limit(100)));
+        if (snapshot.empty) break;
+
+        const batch = writeBatch(dbInstance);
+        snapshot.docs.forEach((docSnap) => batch.delete(docSnap.ref));
+        await batch.commit();
+    }
 }

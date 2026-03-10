@@ -1,6 +1,7 @@
 import {
     ensureFirebaseAuth,
     mutateKioskState,
+    resetKioskState,
     subscribeKioskHistory,
     subscribeKioskState,
     upsertKiosk
@@ -12,6 +13,7 @@ let currentTvId = null;
 let actorId = null;
 let unsubscribeState = null;
 let unsubscribeHistory = null;
+let editingAnnouncementId = null;
 
 const connectBtn = document.getElementById('connect-btn');
 const disconnectBtn = document.getElementById('disconnect-btn');
@@ -37,6 +39,7 @@ const addTaskBtn = document.getElementById('add-task-btn');
 const mobileTasksContainer = document.getElementById('mobile-tasks');
 const syncTasksBtn = document.getElementById('sync-tasks-btn');
 const historyList = document.getElementById('history-list');
+const resetKioskBtn = document.getElementById('reset-kiosk-btn');
 
 function initController() {
     const urlParams = new URLSearchParams(window.location.search);
@@ -51,6 +54,7 @@ function initController() {
     addAnnouncementBtn.addEventListener('click', addAnnouncement);
     syncTasksBtn.addEventListener('click', projectTasksMode);
     addTaskBtn.addEventListener('click', addTask);
+    resetKioskBtn.addEventListener('click', handleResetKiosk);
 
     newTaskInput.addEventListener('keypress', (e) => {
         if (e.key === 'Enter') addTask();
@@ -178,27 +182,51 @@ async function addAnnouncement() {
     const plainText = stripHtml(html).trim();
     if (!plainText) return;
 
-    const announcement = {
-        id: Date.now().toString(),
-        html,
-        align: alignSelect.value,
-        size: Number(sizeSlider.value),
-        fontFamily: fontSelect.value
-    };
+    const targetId = editingAnnouncementId || Date.now().toString();
 
     await updateState((state) => {
-        state.announcements.push(announcement);
+        const existing = state.announcements.find((item) => item.id === targetId);
+
+        if (existing) {
+            existing.html = html;
+            existing.align = alignSelect.value;
+            existing.size = Number(sizeSlider.value);
+            existing.fontFamily = fontSelect.value;
+        } else {
+            state.announcements.push({
+                id: targetId,
+                html,
+                align: alignSelect.value,
+                size: Number(sizeSlider.value),
+                fontFamily: fontSelect.value
+            });
+        }
+
         state.activeMode = 'announcements';
 
         return {
             state,
-            type: 'announcement_add',
-            message: 'Se agrego un anuncio',
-            payload: { id: announcement.id }
+            type: existing ? 'announcement_edit' : 'announcement_add',
+            message: existing ? 'Se edito un anuncio' : 'Se agrego un anuncio',
+            payload: { id: targetId }
         };
     });
 
     announcementEditor.innerHTML = '';
+    editingAnnouncementId = null;
+    addAnnouncementBtn.querySelector('.btn-text').innerText = 'AGREGAR A COLA';
+}
+
+function editAnnouncement(id) {
+    const item = announcements.find((row) => row.id === id);
+    if (!item) return;
+
+    editingAnnouncementId = id;
+    announcementEditor.innerHTML = item.html || '';
+    alignSelect.value = item.align || 'center';
+    fontSelect.value = item.fontFamily || 'Orbitron';
+    sizeSlider.value = Number(item.size) || 6;
+    addAnnouncementBtn.querySelector('.btn-text').innerText = 'GUARDAR EDICION';
 }
 
 async function deleteAnnouncement(id) {
@@ -235,6 +263,28 @@ async function addTask() {
     });
 
     newTaskInput.value = '';
+}
+
+async function editTask(id) {
+    const task = tasks.find((item) => item.id === id);
+    if (!task) return;
+
+    const nextText = prompt('Editar tarea:', task.text);
+    if (nextText === null) return;
+
+    const trimmed = nextText.trim();
+    if (!trimmed) return;
+
+    await updateState((state) => {
+        const row = state.tasks.find((item) => item.id === id);
+        if (row) row.text = trimmed;
+        return {
+            state,
+            type: 'task_edit',
+            message: 'Se edito una tarea',
+            payload: { id }
+        };
+    });
 }
 
 async function toggleTask(id) {
@@ -276,6 +326,25 @@ async function updateState(mutateFn) {
     }
 }
 
+async function handleResetKiosk() {
+    if (!currentTvId) {
+        alert('Conectate primero a una TV.');
+        return;
+    }
+
+    const ok = confirm('Esto borrara tareas, anuncios e historial. Continuar?');
+    if (!ok) return;
+
+    try {
+        await resetKioskState(currentTvId);
+        editingAnnouncementId = null;
+        addAnnouncementBtn.querySelector('.btn-text').innerText = 'AGREGAR A COLA';
+    } catch (error) {
+        console.error(error);
+        alert('No se pudo ejecutar el reset total.');
+    }
+}
+
 function renderAnnouncementQueue() {
     announcementList.innerHTML = '';
 
@@ -307,7 +376,15 @@ function renderAnnouncementQueue() {
         removeBtn.innerText = '✗';
         removeBtn.addEventListener('click', () => deleteAnnouncement(item.id));
 
+        const editBtn = document.createElement('button');
+        editBtn.className = 'announcement-remove-btn';
+        editBtn.type = 'button';
+        editBtn.style.color = '#f5c96f';
+        editBtn.innerText = '✎';
+        editBtn.addEventListener('click', () => editAnnouncement(item.id));
+
         row.appendChild(infoWrap);
+        row.appendChild(editBtn);
         row.appendChild(removeBtn);
         announcementList.appendChild(row);
     });
@@ -343,7 +420,14 @@ function renderMobileTasks() {
         delBtn.innerText = '✗';
         delBtn.addEventListener('click', () => deleteTask(task.id));
 
+        const editBtn = document.createElement('button');
+        editBtn.className = 'edit-btn';
+        editBtn.type = 'button';
+        editBtn.innerText = '✎';
+        editBtn.addEventListener('click', () => editTask(task.id));
+
         actions.appendChild(checkBtn);
+        actions.appendChild(editBtn);
         actions.appendChild(delBtn);
         item.appendChild(text);
         item.appendChild(actions);

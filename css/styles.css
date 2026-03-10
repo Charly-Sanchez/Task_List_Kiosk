@@ -485,6 +485,7 @@ h1, h2, h3, .cyber-title, .neon-text, .glitch {
 }
 .task-actions button.del-btn { color: #ff3333; }
 .task-actions button.check-btn { color: var(--neon-green); }
+.task-actions button.edit-btn { color: #f5c96f; }
 
 .editor-toolbar {
     display: flex;
