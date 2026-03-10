@@ -38,9 +38,22 @@ const tvIdCornerElement = document.getElementById('tv-id-corner');
 function getTvIdFromUrl() {
     const params = new URLSearchParams(window.location.search);
     const fromQuery = params.get('tv');
-    if (fromQuery) return fromQuery.toUpperCase();
+    if (fromQuery) {
+        const normalized = fromQuery.toUpperCase();
+        localStorage.setItem('kioskTvId', normalized);
+        return normalized;
+    }
+
+    const persisted = localStorage.getItem('kioskTvId');
+    if (persisted) {
+        params.set('tv', persisted);
+        const nextPersisted = `${window.location.pathname}?${params.toString()}`;
+        window.history.replaceState({}, '', nextPersisted);
+        return persisted;
+    }
 
     const generated = 'TV-' + Math.floor(Math.random() * 10000).toString().padStart(4, '0');
+    localStorage.setItem('kioskTvId', generated);
     params.set('tv', generated);
     const next = `${window.location.pathname}?${params.toString()}`;
     window.history.replaceState({}, '', next);
