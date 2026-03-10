@@ -210,6 +210,14 @@ h1, h2, h3, .cyber-title, .neon-text, .glitch {
     text-shadow: none;
     word-wrap: break-word;
     color: white;
+    opacity: 1;
+    transform: translateY(0);
+    transition: opacity 0.35s ease, transform 0.35s ease;
+}
+
+.text-glow.fade-out {
+    opacity: 0;
+    transform: translateY(10px);
 }
 
 .align-center { text-align: center; }
@@ -234,22 +242,22 @@ h1, h2, h3, .cyber-title, .neon-text, .glitch {
     position: relative;
     width: 100%;
     flex: 1;
-    min-height: 260px;
-    max-height: 340px;
+    min-height: 320px;
+    max-height: 420px;
     overflow: hidden;
     border: 1px solid rgba(142, 156, 178, 0.45);
     border-radius: 12px;
-    background: linear-gradient(90deg, rgba(20, 24, 32, 0.94), rgba(54, 66, 84, 0.5), rgba(20, 24, 32, 0.94));
+    background: linear-gradient(180deg, rgba(20, 24, 32, 0.94), rgba(54, 66, 84, 0.5), rgba(20, 24, 32, 0.94));
 }
 
 .tasks-center-marker {
     position: absolute;
-    top: 14px;
-    bottom: 14px;
-    left: 50%;
-    width: 6px;
-    transform: translateX(-50%);
-    background: linear-gradient(to bottom, transparent, var(--neon-pink), transparent);
+    left: 18px;
+    right: 18px;
+    top: 50%;
+    height: 4px;
+    transform: translateY(-50%);
+    background: linear-gradient(to right, transparent, var(--neon-pink), transparent);
     box-shadow: none;
     z-index: 2;
     pointer-events: none;
@@ -258,18 +266,22 @@ h1, h2, h3, .cyber-title, .neon-text, .glitch {
 .tasks-container {
     height: 100%;
     display: flex;
-    align-items: center;
-    gap: 24px;
-    padding: 0 24px;
-    width: max-content;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 14px;
+    padding: 18px 18px;
+    width: 100%;
     will-change: transform;
+    opacity: 1;
+    transition: opacity 0.3s ease;
 }
 
 .tasks-track-set {
     display: flex;
-    align-items: center;
-    gap: 24px;
-    padding-right: 24px;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 14px;
+    padding-bottom: 14px;
 }
 
 .tasks-container.rolling {
@@ -278,14 +290,17 @@ h1, h2, h3, .cyber-title, .neon-text, .glitch {
     animation-iteration-count: infinite;
 }
 
+.tasks-container.soft-hidden {
+    opacity: 0;
+}
+
 .task-card {
-    min-width: 500px;
-    max-width: 500px;
+    width: 100%;
     background: rgba(255, 255, 255, 0.05);
     border-left: 8px solid var(--neon-blue);
     border-right: 1px solid rgba(122, 141, 166, 0.2);
-    padding: 28px;
-    font-size: 2.1rem;
+    padding: 20px;
+    font-size: 1.8rem;
     box-shadow: none;
     border-radius: 0 10px 10px 0;
 }
@@ -299,10 +314,10 @@ h1, h2, h3, .cyber-title, .neon-text, .glitch {
 
 @keyframes task-roulette-roll {
     from {
-        transform: translateX(0);
+        transform: translateY(0);
     }
     to {
-        transform: translateX(var(--roll-distance, -50%));
+        transform: translateY(var(--roll-distance, -50%));
     }
 }
 

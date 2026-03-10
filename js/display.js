@@ -1,11 +1,18 @@
 // Generate a random ID for the TV so the user can connect
 const tvId = 'TV-' + Math.floor(Math.random() * 10000).toString().padStart(4, '0');
 let peer = null;
-const ROTATION_MS = 5000;
+const ANNOUNCEMENT_ROTATION_MS = 5000;
+const TASKS_PER_PAGE = 7;
+const TASK_LOOP_TARGET = 3;
 
 let announcementRotationTimer = null;
 let announcementQueue = [];
 let tasksQueue = [];
+let taskPages = [];
+let currentTaskPageIndex = 0;
+let taskLoopCount = 0;
+let taskRollIterationHandler = null;
+let announcementFadeTimeout = null;
 const activeConnections = [];
 
 // DOM Elements
@@ -98,23 +105,40 @@ function showAnnouncements(items) {
         announcementText.innerText = 'Sin anuncios para mostrar';
         announcementText.className = 'text-glow align-center';
         announcementText.style.fontSize = '4rem';
-        announcementText.style.fontFamily = 'Orbitron, sans-serif';
+            renderAnnouncement(announcementQueue[index], false);
         stopAnnouncementRotation();
         return;
     }
 
     let index = 0;
-    renderAnnouncement(announcementQueue[index]);
-
+                    renderAnnouncement(announcementQueue[index], true);
+                }, ANNOUNCEMENT_ROTATION_MS);
     stopAnnouncementRotation();
     if (announcementQueue.length > 1) {
         announcementRotationTimer = setInterval(() => {
-            index = (index + 1) % announcementQueue.length;
-            renderAnnouncement(announcementQueue[index]);
-        }, ROTATION_MS);
-    }
-}
+        function renderAnnouncement(item, smooth) {
+            if (!smooth) {
+                applyAnnouncement(item);
+                return;
+            }
 
+            if (announcementFadeTimeout) {
+                clearTimeout(announcementFadeTimeout);
+            }
+
+            announcementText.classList.add('fade-out');
+            announcementFadeTimeout = setTimeout(() => {
+                applyAnnouncement(item);
+                announcementText.classList.remove('fade-out');
+            }, 260);
+        }
+
+        function applyAnnouncement(item) {
+            announcementText.className = 'text-glow';
+            announcementText.classList.add('align-' + (item.align || 'center'));
+            announcementText.style.fontSize = `${Number(item.size) || 6}rem`;
+            announcementText.style.fontFamily = `${item.fontFamily || 'Orbitron'}, sans-serif`;
+            announcementText.innerHTML = item.html;
 function renderAnnouncement(item) {
     announcementText.className = 'text-glow';
     announcementText.classList.add('align-' + (item.align || 'center'));
@@ -131,10 +155,18 @@ function showAnnouncement(text, align, size) {
             size: Number(size) || 6,
             fontFamily: 'Orbitron'
         }
-    ]);
+            taskPages = chunkTasks(tasksQueue, TASKS_PER_PAGE);
+            currentTaskPageIndex = 0;
+            startTaskPageRoll();
 }
 
-function showTasks(tasks) {
+        function startTaskPageRoll() {
+            const currentPage = taskPages[currentTaskPageIndex] || [];
+            renderTaskRoulette(currentPage);
+            taskLoopCount = 0;
+        }
+
+        function renderTaskRoulette(tasks) {
     stopAnnouncementRotation();
     tasksQueue = Array.isArray(tasks) ? tasks : [];
 
@@ -149,13 +181,14 @@ function showTasks(tasks) {
     }
 
     renderTaskRoulette(tasksQueue);
-}
+            const duration = Math.max(7, tasks.length * 1.35);
 
 function syncStateToConnection(conn) {
-    if (!conn || !conn.open) return;
+                const distance = firstSet.offsetHeight;
     conn.send({
         type: 'sync_state',
         announcements: announcementQueue,
+                attachTaskLoopListener();
         tasks: tasksQueue
     });
 }
@@ -218,9 +251,52 @@ function stopAnnouncementRotation() {
 }
 
 function stopTaskRoll() {
+    if (taskRollIterationHandler) {
+        tvTasks.removeEventListener('animationiteration', taskRollIterationHandler);
+        taskRollIterationHandler = null;
+    }
+
     tvTasks.classList.remove('rolling');
+    tvTasks.classList.remove('soft-hidden');
     tvTasks.style.removeProperty('animation-duration');
     tvTasks.style.removeProperty('--roll-distance');
+}
+
+function attachTaskLoopListener() {
+    if (taskRollIterationHandler) {
+        tvTasks.removeEventListener('animationiteration', taskRollIterationHandler);
+    }
+
+    taskRollIterationHandler = () => {
+        taskLoopCount += 1;
+        if (taskLoopCount < TASK_LOOP_TARGET) return;
+
+        taskLoopCount = 0;
+        if (taskPages.length <= 1) {
+            if (announcementQueue.length > 0) {
+                showAnnouncements(announcementQueue);
+            }
+            return;
+        }
+
+        currentTaskPageIndex = (currentTaskPageIndex + 1) % taskPages.length;
+        tvTasks.classList.add('soft-hidden');
+
+        setTimeout(() => {
+            startTaskPageRoll();
+            tvTasks.classList.remove('soft-hidden');
+        }, 300);
+    };
+
+    tvTasks.addEventListener('animationiteration', taskRollIterationHandler);
+}
+
+function chunkTasks(items, size) {
+    const output = [];
+    for (let i = 0; i < items.length; i += size) {
+        output.push(items.slice(i, i + size));
+    }
+    return output;
 }
 
 function escapeHtml(text) {
