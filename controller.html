@@ -6,7 +6,6 @@
     <title>Control Remoto Kiosk</title>
     <link rel="stylesheet" href="css/styles.css">
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Rajdhani:wght@400;600;700&display=swap" rel="stylesheet">
-    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
 </head>
 <body class="control-mode">
     <div class="glass-panel" id="connect-panel">
@@ -79,8 +78,11 @@
         </div>
         
         <button id="disconnect-btn" class="cyber-button danger full-width mt-10"><span class="btn-text">DESCONECTAR</span></button>
+
+        <h3 class="neon-text" style="margin: 22px 0 10px 0;">Historial Reciente</h3>
+        <div id="history-list" class="announcement-list"></div>
     </div>
 
-    <script src="js/controller.js"></script>
+    <script type="module" src="js/controller.js"></script>
 </body>
 </html>

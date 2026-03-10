@@ -1,11 +1,14 @@
-// Generate a random ID for the TV so controllers can connect.
-const tvId = 'TV-' + Math.floor(Math.random() * 10000).toString().padStart(4, '0');
-let peer = null;
+import {
+    ensureFirebaseAuth,
+    subscribeKioskState,
+    upsertKiosk
+} from './firebase-service.js';
 
 const ANNOUNCEMENT_ROTATION_MS = 5000;
 const TASKS_PER_PAGE = 7;
 const TASK_LOOP_TARGET = 3;
 const MIN_ANNOUNCEMENT_SIZE_REM = 1.2;
+const TASK_SPEED_PX_PER_SEC = 20;
 
 let announcementRotationTimer = null;
 let announcementFadeTimeout = null;
@@ -20,11 +23,8 @@ let taskRollRafId = null;
 let taskRollLastTs = 0;
 let taskOffsetPx = 0;
 let taskSetHeightPx = 0;
-const TASK_SPEED_PX_PER_SEC = 20;
+let activeMode = 'announcements';
 
-const activeConnections = [];
-
-// DOM Elements
 const connectionScreen = document.getElementById('connection-screen');
 const appContent = document.getElementById('app-content');
 const announcementLayer = document.getElementById('announcement-layer');
@@ -35,45 +35,58 @@ const tvTasks = document.getElementById('tv-tasks');
 const myIdElement = document.getElementById('my-id');
 const tvIdCornerElement = document.getElementById('tv-id-corner');
 
-function initDisplay() {
-    peer = new Peer(tvId);
+function getTvIdFromUrl() {
+    const params = new URLSearchParams(window.location.search);
+    const fromQuery = params.get('tv');
+    if (fromQuery) return fromQuery.toUpperCase();
 
-    peer.on('open', (id) => {
-        myIdElement.innerText = id;
-        tvIdCornerElement.innerText = `TV ID: ${id}`;
+    const generated = 'TV-' + Math.floor(Math.random() * 10000).toString().padStart(4, '0');
+    params.set('tv', generated);
+    const next = `${window.location.pathname}?${params.toString()}`;
+    window.history.replaceState({}, '', next);
+    return generated;
+}
 
-        const currentUrl = window.location.href;
-        const controllerUrl = currentUrl.replace('display.html', 'controller.html') + '?id=' + id;
+async function initDisplay() {
+    const tvId = getTvIdFromUrl();
+    myIdElement.innerText = tvId;
+    tvIdCornerElement.innerText = `TV ID: ${tvId}`;
 
-        new QRCode(document.getElementById('qrcode'), {
-            text: controllerUrl,
-            width: 256,
-            height: 256,
-            colorDark: '#4f6178',
-            colorLight: '#ffffff',
-            correctLevel: QRCode.CorrectLevel.H
-        });
+    const baseUrl = `${window.location.origin}${window.location.pathname}`;
+    const controllerUrl = baseUrl.replace('display.html', 'controller.html') + `?id=${tvId}`;
+
+    new QRCode(document.getElementById('qrcode'), {
+        text: controllerUrl,
+        width: 256,
+        height: 256,
+        colorDark: '#4f6178',
+        colorLight: '#ffffff',
+        correctLevel: QRCode.CorrectLevel.H
     });
 
-    peer.on('connection', (conn) => {
-        activeConnections.push(conn);
+    try {
+        await ensureFirebaseAuth();
+        await upsertKiosk(tvId);
+
+        subscribeKioskState(
+            tvId,
+            (state) => {
+                announcementQueue = state.announcements;
+                tasksQueue = state.tasks;
+                activeMode = state.activeMode;
+                renderByMode();
+            },
+            (error) => {
+                console.error(error);
+            }
+        );
+
         connectionScreen.classList.add('hidden');
         appContent.classList.remove('hidden');
-        syncStateToConnection(conn);
-
-        conn.on('data', (data) => {
-            handleIncomingData(data, conn);
-        });
-
-        conn.on('close', () => {
-            const index = activeConnections.indexOf(conn);
-            if (index >= 0) activeConnections.splice(index, 1);
-        });
-    });
-
-    peer.on('error', (err) => {
-        console.error('PeerJS error:', err);
-    });
+    } catch (error) {
+        console.error(error);
+        alert('No se pudo iniciar Firebase. Revisa js/firebase-config.js');
+    }
 
     window.addEventListener('resize', () => {
         if (currentAnnouncement) {
@@ -82,37 +95,17 @@ function initDisplay() {
     });
 }
 
-function handleIncomingData(data, sourceConn) {
-    if (!data || !data.type) return;
-
-    if (data.type === 'announcements') {
-        showAnnouncements(Array.isArray(data.announcements) ? data.announcements : []);
-        broadcastState(sourceConn);
-        return;
-    }
-
-    if (data.type === 'tasks') {
-        showTasks(Array.isArray(data.tasks) ? data.tasks : []);
-        broadcastState(sourceConn);
-        return;
-    }
-
-    // Backward compatibility for older payloads.
-    if (data.type === 'announcement') {
-        showAnnouncements([
-            {
-                html: escapeHtml(data.text || ''),
-                align: data.align || 'center',
-                size: Number(data.size) || 6,
-                fontFamily: 'Orbitron'
-            }
-        ]);
+function renderByMode() {
+    if (activeMode === 'tasks') {
+        showTasks(tasksQueue);
+    } else {
+        showAnnouncements(announcementQueue);
     }
 }
 
 function showAnnouncements(items) {
     stopTaskRoll();
-    announcementQueue = items.filter((item) => item && item.html);
+    announcementQueue = Array.isArray(items) ? items.filter((item) => item && item.html) : [];
 
     tasksLayer.classList.add('hidden');
     announcementLayer.classList.remove('hidden');
@@ -163,7 +156,6 @@ function applyAnnouncement(item) {
     announcementText.classList.add('align-' + (item.align || 'center'));
     announcementText.style.fontFamily = `${item.fontFamily || 'Orbitron'}, sans-serif`;
     announcementText.innerHTML = item.html;
-
     fitAnnouncementText(Number(item.size) || 6);
 }
 
@@ -198,7 +190,7 @@ function fitAnnouncementText(preferredRem) {
 
 function showTasks(tasks) {
     stopAnnouncementRotation();
-    tasksQueue = tasks;
+    tasksQueue = Array.isArray(tasks) ? tasks : [];
 
     announcementLayer.classList.add('hidden');
     tasksLayer.classList.remove('hidden');
@@ -244,23 +236,6 @@ function renderTaskRoulette(tasks) {
     });
 }
 
-function createTaskCard(task, orderNumber) {
-    const card = document.createElement('div');
-    card.className = 'task-card' + (task.completed ? ' completed' : '');
-
-    const order = document.createElement('div');
-    order.className = 'task-index';
-    order.innerText = task.completed ? 'OK' : String(orderNumber).padStart(2, '0');
-
-    const text = document.createElement('div');
-    text.className = 'task-text';
-    text.innerText = task.text;
-
-    card.appendChild(order);
-    card.appendChild(text);
-    return card;
-}
-
 function stepTaskMarquee(timestamp) {
     if (!taskRollLastTs) {
         taskRollLastTs = timestamp;
@@ -301,6 +276,23 @@ function handleTaskLoopCompleted() {
     }, 300);
 }
 
+function createTaskCard(task, orderNumber) {
+    const card = document.createElement('div');
+    card.className = 'task-card' + (task.completed ? ' completed' : '');
+
+    const order = document.createElement('div');
+    order.className = 'task-index';
+    order.innerText = task.completed ? 'OK' : String(orderNumber).padStart(2, '0');
+
+    const text = document.createElement('div');
+    text.className = 'task-text';
+    text.innerText = task.text;
+
+    card.appendChild(order);
+    card.appendChild(text);
+    return card;
+}
+
 function stopAnnouncementRotation() {
     if (announcementRotationTimer) {
         clearInterval(announcementRotationTimer);
@@ -326,36 +318,12 @@ function stopTaskRoll() {
     taskSetHeightPx = 0;
 }
 
-function syncStateToConnection(conn) {
-    if (!conn || !conn.open) return;
-
-    conn.send({
-        type: 'sync_state',
-        announcements: announcementQueue,
-        tasks: tasksQueue
-    });
-}
-
-function broadcastState(excludeConn) {
-    activeConnections.forEach((conn) => {
-        if (conn !== excludeConn && conn.open) {
-            syncStateToConnection(conn);
-        }
-    });
-}
-
 function chunkTasks(items, size) {
     const output = [];
     for (let i = 0; i < items.length; i += size) {
         output.push(items.slice(i, i + size));
     }
     return output;
-}
-
-function escapeHtml(text) {
-    const temp = document.createElement('div');
-    temp.innerText = text;
-    return temp.innerHTML;
 }
 
 window.onload = initDisplay;
