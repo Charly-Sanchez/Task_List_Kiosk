@@ -5,7 +5,6 @@ import {
 } from './firebase-service.js';
 
 const ANNOUNCEMENT_ROTATION_MS = 5000;
-const TASKS_PER_PAGE = 7;
 const TASK_LOOP_TARGET = 3;
 const MIN_ANNOUNCEMENT_SIZE_REM = 1.2;
 const TASK_SPEED_PX_PER_SEC = 20;
@@ -16,8 +15,6 @@ let announcementQueue = [];
 let currentAnnouncement = null;
 
 let tasksQueue = [];
-let taskPages = [];
-let currentTaskPageIndex = 0;
 let taskLoopCount = 0;
 let taskRollRafId = null;
 let taskRollLastTs = 0;
@@ -127,7 +124,7 @@ function renderByMode() {
 }
 
 function showAnnouncements(items) {
-    stopTaskRoll();
+    stopTaskRoll(false);
     announcementQueue = Array.isArray(items) ? items.filter((item) => item && item.html) : [];
 
     tasksLayer.classList.add('hidden');
@@ -149,8 +146,7 @@ function showAnnouncements(items) {
         announcementIndex = (announcementIndex + 1) % announcementQueue.length;
 
         stopAnnouncementRotation();
-        announcementRotationTimer = setInterval(() => {
-            stopAnnouncementRotation();
+        announcementRotationTimer = setTimeout(() => {
             showTasks(tasksQueue);
         }, ANNOUNCEMENT_ROTATION_MS);
         return;
@@ -234,51 +230,49 @@ function showTasks(tasks) {
     if (tasksQueue.length === 0) {
         tvTasks.innerHTML = '<p style="font-size:2rem;color:#666;font-family:Orbitron;">NO HAY TAREAS PENDIENTES</p>';
         stopTaskRoll();
+        lastTasksSignature = '';
         return;
     }
 
-    const nextPages = chunkTasks(tasksQueue, TASKS_PER_PAGE);
     const nextSignature = buildTasksSignature(tasksQueue);
-
     const tasksChanged = nextSignature !== lastTasksSignature;
-    taskPages = nextPages;
     lastTasksSignature = nextSignature;
 
-    if (tasksChanged) {
-        currentTaskPageIndex = 0;
-    } else if (taskPages.length > 0) {
-        currentTaskPageIndex = currentTaskPageIndex % taskPages.length;
+    if (tasksChanged || tvTasks.children.length === 0) {
+        taskLoopCount = 0;
+        renderTaskRoulette(tasksQueue, true);
+    } else {
+        renderTaskRoulette(tasksQueue, false);
+    }
+}
+
+function renderTaskRoulette(tasks, rebuild) {
+    stopTaskRoll(false);
+
+    if (rebuild) {
+        tvTasks.innerHTML = '';
+
+        const firstSet = document.createElement('div');
+        firstSet.className = 'tasks-track-set';
+
+        tasks.forEach((task, index) => {
+            firstSet.appendChild(createTaskCard(task, index + 1));
+        });
+
+        const secondSet = firstSet.cloneNode(true);
+        tvTasks.appendChild(firstSet);
+        tvTasks.appendChild(secondSet);
+
+        taskOffsetPx = 0;
+        tvTasks.style.transform = 'translateY(0px)';
     }
 
-    startTaskPageRoll();
-}
-
-function startTaskPageRoll() {
-    const currentPage = taskPages[currentTaskPageIndex] || [];
-    renderTaskRoulette(currentPage);
-    taskLoopCount = 0;
-}
-
-function renderTaskRoulette(tasks) {
-    tvTasks.innerHTML = '';
-    stopTaskRoll();
-
-    const firstSet = document.createElement('div');
-    firstSet.className = 'tasks-track-set';
-
-    tasks.forEach((task, index) => {
-        firstSet.appendChild(createTaskCard(task, index + 1));
-    });
-
-    const secondSet = firstSet.cloneNode(true);
-    tvTasks.appendChild(firstSet);
-    tvTasks.appendChild(secondSet);
-
     requestAnimationFrame(() => {
+        const firstSet = tvTasks.firstElementChild;
+        if (!firstSet) return;
+
         taskSetHeightPx = firstSet.offsetHeight;
-        taskOffsetPx = 0;
         taskRollLastTs = 0;
-        tvTasks.style.transform = 'translateY(0px)';
         taskRollRafId = requestAnimationFrame(stepTaskMarquee);
     });
 }
@@ -308,27 +302,11 @@ function handleTaskLoopCompleted() {
     taskLoopCount = 0;
 
     if (interleaveMode && announcementQueue.length > 0) {
-        if (taskPages.length > 1) {
-            currentTaskPageIndex = (currentTaskPageIndex + 1) % taskPages.length;
-        }
         showAnnouncements(announcementQueue);
         return;
     }
 
-    if (taskPages.length <= 1) {
-        if (announcementQueue.length > 0) {
-            showAnnouncements(announcementQueue);
-        }
-        return;
-    }
-
-    currentTaskPageIndex = (currentTaskPageIndex + 1) % taskPages.length;
-    tvTasks.classList.add('soft-hidden');
-
-    setTimeout(() => {
-        startTaskPageRoll();
-        tvTasks.classList.remove('soft-hidden');
-    }, 300);
+    // Continuous loop mode: keep rolling with no visual reset.
 }
 
 function createTaskCard(task, orderNumber) {
@@ -350,7 +328,7 @@ function createTaskCard(task, orderNumber) {
 
 function stopAnnouncementRotation() {
     if (announcementRotationTimer) {
-        clearInterval(announcementRotationTimer);
+        clearTimeout(announcementRotationTimer);
         announcementRotationTimer = null;
     }
 
@@ -360,25 +338,19 @@ function stopAnnouncementRotation() {
     }
 }
 
-function stopTaskRoll() {
+function stopTaskRoll(resetVisual = true) {
     if (taskRollRafId) {
         cancelAnimationFrame(taskRollRafId);
         taskRollRafId = null;
     }
 
     tvTasks.classList.remove('soft-hidden');
-    tvTasks.style.transform = 'translateY(0px)';
-    taskRollLastTs = 0;
-    taskOffsetPx = 0;
-    taskSetHeightPx = 0;
-}
-
-function chunkTasks(items, size) {
-    const output = [];
-    for (let i = 0; i < items.length; i += size) {
-        output.push(items.slice(i, i + size));
+    if (resetVisual) {
+        tvTasks.style.transform = 'translateY(0px)';
+        taskOffsetPx = 0;
     }
-    return output;
+    taskRollLastTs = 0;
+    taskSetHeightPx = 0;
 }
 
 function buildTasksSignature(tasks) {
