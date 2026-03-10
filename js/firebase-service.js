@@ -1,7 +1,6 @@
 import { initializeApp, getApps } from 'https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js';
 import { getAuth, signInAnonymously } from 'https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js';
 import {
-    addDoc,
     collection,
     doc,
     getFirestore,
@@ -67,14 +66,17 @@ export async function upsertKiosk(tvId) {
     const { db: dbInstance } = ensureInitialized();
     const ref = doc(dbInstance, 'kiosks', tvId);
 
-    await setDoc(
-        ref,
-        {
+    await runTransaction(dbInstance, async (transaction) => {
+        const snapshot = await transaction.get(ref);
+        if (snapshot.exists()) {
+            return;
+        }
+
+        transaction.set(ref, {
             ...getDefaultState(),
             updatedAt: serverTimestamp()
-        },
-        { merge: true }
-    );
+        });
+    });
 }
 
 export function subscribeKioskState(tvId, onState, onError) {

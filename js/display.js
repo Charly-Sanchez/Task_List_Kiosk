@@ -24,6 +24,8 @@ let taskRollLastTs = 0;
 let taskOffsetPx = 0;
 let taskSetHeightPx = 0;
 let activeMode = 'announcements';
+let interleaveMode = false;
+let announcementIndex = 0;
 
 const connectionScreen = document.getElementById('connection-screen');
 const appContent = document.getElementById('app-content');
@@ -109,6 +111,13 @@ async function initDisplay() {
 }
 
 function renderByMode() {
+    interleaveMode = announcementQueue.length > 0 && tasksQueue.length > 0;
+
+    if (interleaveMode) {
+        showAnnouncements(announcementQueue);
+        return;
+    }
+
     if (activeMode === 'tasks') {
         showTasks(tasksQueue);
     } else {
@@ -130,6 +139,19 @@ function showAnnouncements(items) {
         announcementText.style.fontFamily = 'Orbitron, sans-serif';
         announcementText.style.fontSize = '4rem';
         stopAnnouncementRotation();
+        return;
+    }
+
+    if (interleaveMode) {
+        announcementIndex = announcementIndex % announcementQueue.length;
+        renderAnnouncement(announcementQueue[announcementIndex], false);
+        announcementIndex = (announcementIndex + 1) % announcementQueue.length;
+
+        stopAnnouncementRotation();
+        announcementRotationTimer = setInterval(() => {
+            stopAnnouncementRotation();
+            showTasks(tasksQueue);
+        }, ANNOUNCEMENT_ROTATION_MS);
         return;
     }
 
@@ -272,6 +294,14 @@ function handleTaskLoopCompleted() {
     if (taskLoopCount < TASK_LOOP_TARGET) return;
 
     taskLoopCount = 0;
+
+    if (interleaveMode && announcementQueue.length > 0) {
+        if (taskPages.length > 1) {
+            currentTaskPageIndex = (currentTaskPageIndex + 1) % taskPages.length;
+        }
+        showAnnouncements(announcementQueue);
+        return;
+    }
 
     if (taskPages.length <= 1) {
         if (announcementQueue.length > 0) {
