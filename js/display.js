@@ -1,11 +1,12 @@
 // Generate a random ID for the TV so the user can connect
 const tvId = 'TV-' + Math.floor(Math.random() * 10000).toString().padStart(4, '0');
 let peer = null;
-const ROTATION_MS = 10000;
+const ROTATION_MS = 5000;
 
 let announcementRotationTimer = null;
 let announcementQueue = [];
 let tasksQueue = [];
+const activeConnections = [];
 
 // DOM Elements
 const connectionScreen = document.getElementById('connection-screen');
@@ -15,6 +16,7 @@ const tasksLayer = document.getElementById('tasks-layer');
 const announcementText = document.getElementById('announcement-text');
 const tvTasks = document.getElementById('tv-tasks');
 const myIdElement = document.getElementById('my-id');
+const tvIdCornerElement = document.getElementById('tv-id-corner');
 
 // Initialize PeerJS
 function initDisplay() {
@@ -22,6 +24,7 @@ function initDisplay() {
 
     peer.on('open', (id) => {
         myIdElement.innerText = id;
+        tvIdCornerElement.innerText = `TV ID: ${id}`;
         
         // Generate QR code pointing to controller with the TV ID as query param
         // If hosted on gh-pages, this allows scanning to auto-connect (future enhancement)
@@ -40,17 +43,20 @@ function initDisplay() {
 
     peer.on('connection', (conn) => {
         console.log("Connected to controller:", conn.peer);
+        activeConnections.push(conn);
         
         // Hide connection screen and show app content when connected
         connectionScreen.classList.add('hidden');
         appContent.classList.remove('hidden');
+        syncStateToConnection(conn);
 
         conn.on('data', (data) => {
-            handleIncomingData(data);
+            handleIncomingData(data, conn);
         });
 
         conn.on('close', () => {
-            // Optional: Show disconnect warning or revert to standby
+            const index = activeConnections.indexOf(conn);
+            if (index >= 0) activeConnections.splice(index, 1);
             console.log("Connection closed");
         });
     });
@@ -60,7 +66,7 @@ function initDisplay() {
     });
 }
 
-function handleIncomingData(data) {
+function handleIncomingData(data, sourceConn) {
     if (!data || !data.type) return;
 
     if (data.type === 'announcement') {
@@ -74,13 +80,15 @@ function handleIncomingData(data) {
         ]);
     } else if (data.type === 'announcements') {
         showAnnouncements(Array.isArray(data.announcements) ? data.announcements : []);
+        broadcastState(sourceConn);
     } else if (data.type === 'tasks') {
         showTasks(data.tasks);
+        broadcastState(sourceConn);
     }
 }
 
 function showAnnouncements(items) {
-    stopTaskRotation();
+    stopTaskRoll();
     announcementQueue = items.filter((item) => item && item.html);
 
     tasksLayer.classList.add('hidden');
@@ -141,6 +149,23 @@ function showTasks(tasks) {
     }
 
     renderTaskRoulette(tasksQueue);
+}
+
+function syncStateToConnection(conn) {
+    if (!conn || !conn.open) return;
+    conn.send({
+        type: 'sync_state',
+        announcements: announcementQueue,
+        tasks: tasksQueue
+    });
+}
+
+function broadcastState(excludeConn) {
+    activeConnections.forEach((conn) => {
+        if (conn !== excludeConn && conn.open) {
+            syncStateToConnection(conn);
+        }
+    });
 }
 
 function renderTaskRoulette(tasks) {

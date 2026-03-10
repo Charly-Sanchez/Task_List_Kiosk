@@ -35,9 +35,6 @@ const syncTasksBtn = document.getElementById('sync-tasks-btn');
 
 // Initialize Controller App
 function initController() {
-    loadTasks();
-    loadAnnouncements();
-    
     // Check URL parameters for auto-connect (scanned from QR)
     const urlParams = new URLSearchParams(window.location.search);
     const idFromUrl = urlParams.get('id');
@@ -116,13 +113,12 @@ function connectToTV(tvId) {
         connection.on('open', () => {
             statusMsg.innerText = "¡Conectado!";
             statusMsg.style.color = "var(--neon-green)";
+
+            connection.on('data', handleIncomingData);
             
             setTimeout(() => {
                 connectPanel.classList.add('hidden');
                 controlPanel.classList.remove('hidden');
-                
-                sendAnnouncements();
-                sendTasks();
             }, 500);
         });
 
@@ -142,6 +138,17 @@ function connectToTV(tvId) {
         statusMsg.innerText = "Error: " + err.type;
         statusMsg.style.color = "#ff3333";
     });
+}
+
+function handleIncomingData(data) {
+    if (!data || !data.type) return;
+
+    if (data.type === 'sync_state') {
+        tasks = Array.isArray(data.tasks) ? data.tasks : [];
+        announcements = Array.isArray(data.announcements) ? data.announcements : [];
+        renderMobileTasks();
+        renderAnnouncementQueue();
+    }
 }
 
 function handleDisconnect() {
@@ -199,14 +206,12 @@ function addAnnouncement() {
     });
 
     announcementEditor.innerHTML = '';
-    saveAnnouncements();
     renderAnnouncementQueue();
     sendAnnouncements();
 }
 
 function deleteAnnouncement(id) {
     announcements = announcements.filter((item) => item.id !== id);
-    saveAnnouncements();
     renderAnnouncementQueue();
     sendAnnouncements();
 }
@@ -297,7 +302,6 @@ function addTask() {
     });
 
     newTaskInput.value = '';
-    saveTasks();
     renderMobileTasks();
     sendTasks(); // Auto-sync
 }
@@ -306,7 +310,6 @@ function toggleTask(id) {
     const task = tasks.find(t => t.id === id);
     if (task) {
         task.completed = !task.completed;
-        saveTasks();
         renderMobileTasks();
         sendTasks(); // Auto-sync
     }
@@ -314,7 +317,6 @@ function toggleTask(id) {
 
 function deleteTask(id) {
     tasks = tasks.filter(t => t.id !== id);
-    saveTasks();
     renderMobileTasks();
     sendTasks(); // Auto-sync
 }
@@ -341,37 +343,6 @@ function renderMobileTasks() {
         
         mobileTasksContainer.appendChild(item);
     });
-}
-
-// Persistence using localStorage
-function saveTasks() {
-    localStorage.setItem('kioskTasks', JSON.stringify(tasks));
-}
-
-function saveAnnouncements() {
-    localStorage.setItem('kioskAnnouncements', JSON.stringify(announcements));
-}
-
-function loadTasks() {
-    const saved = localStorage.getItem('kioskTasks');
-    if (saved) {
-        try {
-            tasks = JSON.parse(saved);
-        } catch (e) {
-            tasks = [];
-        }
-    }
-}
-
-function loadAnnouncements() {
-    const saved = localStorage.getItem('kioskAnnouncements');
-    if (saved) {
-        try {
-            announcements = JSON.parse(saved);
-        } catch (e) {
-            announcements = [];
-        }
-    }
 }
 
 // Initialize on load

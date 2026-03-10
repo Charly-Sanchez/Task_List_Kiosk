@@ -145,6 +145,21 @@ h1, h2, h3, .cyber-title, .neon-text, .glitch {
     width: 100vw;
 }
 
+.tv-id-corner {
+    position: absolute;
+    top: 24px;
+    right: 28px;
+    z-index: 6;
+    padding: 8px 12px;
+    border-radius: 6px;
+    border: 1px solid rgba(142, 156, 178, 0.5);
+    background: rgba(25, 29, 37, 0.85);
+    color: #dbe2ec;
+    font-family: 'Orbitron', sans-serif;
+    font-size: 1rem;
+    letter-spacing: 1px;
+}
+
 .hidden { display: none !important; }
 
 #qrcode {
