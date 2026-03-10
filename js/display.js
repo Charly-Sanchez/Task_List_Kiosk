@@ -127,8 +127,7 @@ function showAnnouncements(items) {
     stopTaskRoll(false);
     announcementQueue = Array.isArray(items) ? items.filter((item) => item && item.html) : [];
 
-    tasksLayer.classList.add('hidden');
-    announcementLayer.classList.remove('hidden');
+    activateLayer(announcementLayer);
 
     if (announcementQueue.length === 0) {
         currentAnnouncement = null;
@@ -224,8 +223,7 @@ function showTasks(tasks) {
     stopAnnouncementRotation();
     tasksQueue = Array.isArray(tasks) ? tasks : [];
 
-    announcementLayer.classList.add('hidden');
-    tasksLayer.classList.remove('hidden');
+    activateLayer(tasksLayer);
 
     if (tasksQueue.length === 0) {
         tvTasks.innerHTML = '<p style="font-size:2rem;color:#666;font-family:Orbitron;">NO HAY TAREAS PENDIENTES</p>';
@@ -375,6 +373,17 @@ function stopTaskRoll(resetVisual = true) {
     }
     taskRollLastTs = 0;
     taskSetHeightPx = 0;
+}
+
+function activateLayer(targetLayer) {
+    [announcementLayer, tasksLayer].forEach((layer) => {
+        layer.classList.remove('hidden');
+        layer.classList.remove('layer-visible');
+    });
+
+    requestAnimationFrame(() => {
+        targetLayer.classList.add('layer-visible');
+    });
 }
 
 function buildTasksSignature(tasks) {
