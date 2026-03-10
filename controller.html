@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Control Remoto Kiosk</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Rajdhani:wght@400;600;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+</head>
+<body class="control-mode">
+    <div class="glass-panel" id="connect-panel">
+        <h2 class="neon-text">CONECTAR A LA TV</h2>
+        <input type="text" id="target-id" class="cyber-input" placeholder="INGRESA EL ID DE LA TV Ej. TV-1234">
+        <button id="connect-btn" class="cyber-button full-width"><span class="btn-text">CONECTAR</span></button>
+        <p id="connection-status" class="status-msg">Desconectado</p>
+    </div>
+
+    <div class="glass-panel hidden" id="control-panel">
+        <div class="tabs">
+            <button class="tab-btn active" data-target="tab-anuncios">Anuncio</button>
+            <button class="tab-btn" data-target="tab-tareas">Tareas</button>
+        </div>
+
+        <div id="tab-anuncios" class="tab-content active">
+            <h3 class="neon-text" style="margin-bottom:15px">Proyectar Anuncio</h3>
+            <textarea id="announcement-input" class="cyber-textarea" placeholder="Escribe algo para proyectar... (Soporta Emojis 🚀)"></textarea>
+            
+            <div class="controls-row">
+                <label>Alineación:</label>
+                <select id="align-select" class="cyber-select" style="margin-bottom:0px">
+                    <option value="center">Centro</option>
+                    <option value="left">Izquierda</option>
+                    <option value="right">Derecha</option>
+                </select>
+            </div>
+            
+            <div class="controls-row">
+                <label>Tamaño Texto:</label>
+                <input type="range" id="size-slider" min="2" max="15" value="6" class="cyber-slider">
+            </div>
+
+            <button id="send-announcement" class="cyber-button full-width mt-10"><span class="btn-text">PROYECTAR ANUNCIO</span></button>
+        </div>
+
+        <div id="tab-tareas" class="tab-content hidden">
+            <h3 class="neon-text" style="margin-bottom:15px">Lista de Tareas</h3>
+            <div class="task-add-row">
+                <input type="text" id="new-task-input" class="cyber-input" placeholder="Nueva tarea...">
+                <button id="add-task-btn" class="cyber-button-small">+</button>
+            </div>
+            
+            <div id="mobile-tasks" class="mobile-tasks-container">
+            </div>
+            <button id="sync-tasks-btn" class="cyber-button secondary full-width mt-10"><span class="btn-text">PROYECTAR TAREAS</span></button>
+        </div>
+        
+        <button id="disconnect-btn" class="cyber-button danger full-width mt-10"><span class="btn-text">DESCONECTAR</span></button>
+    </div>
+
+    <script src="js/controller.js"></script>
+</body>
+</html>

@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kiosk TV Display</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Rajdhani:wght@400;600;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+</head>
+<body class="display-mode tv-layout">
+    <div id="connection-screen" class="full-screen-center">
+        <h1 class="cyber-title">ESPERANDO CONEXIÓN...</h1>
+        <div id="qrcode"></div>
+        <p class="connection-id-display">ID: <span id="my-id">Generando...</span></p>
+        <p class="instructions">Escanea el código QR o ingresa el ID en el Modo Control.</p>
+    </div>
+
+    <div id="app-content" class="hidden full-screen">
+        <!-- Announcements Layer -->
+        <div id="announcement-layer" class="layer hidden">
+            <h1 id="announcement-text" class="text-glow"></h1>
+        </div>
+
+        <!-- Task List Layer -->
+        <div id="tasks-layer" class="layer hidden">
+            <h2 class="section-title">LISTA DE TAREAS</h2>
+            <div class="tasks-container" id="tv-tasks"></div>
+        </div>
+
+        <div class="status-indicator">● CONECTADO</div>
+    </div>
+
+    <script src="js/display.js"></script>
+</body>
+</html>
