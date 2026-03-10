@@ -3,6 +3,7 @@ let connection = null;
 
 // App State
 let tasks = [];
+let announcements = [];
 
 // DOM Elements
 const connectBtn = document.getElementById('connect-btn');
@@ -17,10 +18,14 @@ const tabBtns = document.querySelectorAll('.tab-btn');
 const tabContents = document.querySelectorAll('.tab-content');
 
 // Announcement Elements
-const announceInput = document.getElementById('announcement-input');
+const announcementEditor = document.getElementById('announcement-editor');
 const alignSelect = document.getElementById('align-select');
+const fontSelect = document.getElementById('font-select');
 const sizeSlider = document.getElementById('size-slider');
-const sendAnnounceBtn = document.getElementById('send-announcement');
+const sendAnnouncementsBtn = document.getElementById('send-announcements');
+const addAnnouncementBtn = document.getElementById('add-announcement-btn');
+const announcementList = document.getElementById('announcement-list');
+const formatBtns = document.querySelectorAll('.format-btn');
 
 // Task Elements
 const newTaskInput = document.getElementById('new-task-input');
@@ -31,6 +36,7 @@ const syncTasksBtn = document.getElementById('sync-tasks-btn');
 // Initialize Controller App
 function initController() {
     loadTasks();
+    loadAnnouncements();
     
     // Check URL parameters for auto-connect (scanned from QR)
     const urlParams = new URLSearchParams(window.location.search);
@@ -67,8 +73,17 @@ function initController() {
     });
 
     // Content Sends
-    sendAnnounceBtn.addEventListener('click', sendAnnouncement);
+    sendAnnouncementsBtn.addEventListener('click', sendAnnouncements);
+    addAnnouncementBtn.addEventListener('click', addAnnouncement);
     syncTasksBtn.addEventListener('click', sendTasks);
+
+    // Rich text formatting actions
+    formatBtns.forEach((btn) => {
+        btn.addEventListener('click', () => {
+            announcementEditor.focus();
+            document.execCommand(btn.dataset.cmd, false, null);
+        });
+    });
 
     // Task Interactions
     addTaskBtn.addEventListener('click', addTask);
@@ -77,6 +92,7 @@ function initController() {
     });
 
     renderMobileTasks();
+    renderAnnouncementQueue();
 }
 
 function connectToTV(tvId) {
@@ -105,8 +121,7 @@ function connectToTV(tvId) {
                 connectPanel.classList.add('hidden');
                 controlPanel.classList.remove('hidden');
                 
-                // On connect, optionally sync whatever tab is open
-                // For now, let's sync tasks as default behavior to populate the screen
+                sendAnnouncements();
                 sendTasks();
             }, 500);
         });
@@ -153,16 +168,10 @@ function sendData(data) {
     }
 }
 
-function sendAnnouncement() {
-    const text = announceInput.value.trim() || ' ';
-    const align = alignSelect.value;
-    const size = sizeSlider.value; // Expected between 2 to 15 (rem)
-
+function sendAnnouncements() {
     sendData({
-        type: 'announcement',
-        text: text,
-        align: align,
-        size: size
+        type: 'announcements',
+        announcements: announcements
     });
 }
 
@@ -171,6 +180,108 @@ function sendTasks() {
         type: 'tasks',
         tasks: tasks
     });
+}
+
+// ------ ANNOUNCEMENTS LOGIC ------
+
+function addAnnouncement() {
+    const html = sanitizeRichHtml(announcementEditor.innerHTML);
+    const plainText = stripHtml(html).trim();
+
+    if (!plainText) return;
+
+    announcements.push({
+        id: Date.now().toString(),
+        html: html,
+        align: alignSelect.value,
+        size: Number(sizeSlider.value),
+        fontFamily: fontSelect.value
+    });
+
+    announcementEditor.innerHTML = '';
+    saveAnnouncements();
+    renderAnnouncementQueue();
+    sendAnnouncements();
+}
+
+function deleteAnnouncement(id) {
+    announcements = announcements.filter((item) => item.id !== id);
+    saveAnnouncements();
+    renderAnnouncementQueue();
+    sendAnnouncements();
+}
+
+function renderAnnouncementQueue() {
+    announcementList.innerHTML = '';
+
+    if (announcements.length === 0) {
+        announcementList.innerHTML = '<p style="color:#666;text-align:center;padding:8px;">No hay anuncios en cola.</p>';
+        return;
+    }
+
+    announcements.forEach((item, index) => {
+        const row = document.createElement('div');
+        row.className = 'announcement-item';
+
+        const preview = document.createElement('div');
+        preview.className = 'announcement-preview';
+        preview.innerText = stripHtml(item.html).trim();
+
+        const meta = document.createElement('div');
+        meta.className = 'announcement-meta';
+        meta.innerText = `#${index + 1} | ${item.fontFamily} | ${item.size}rem | ${item.align}`;
+
+        const infoWrap = document.createElement('div');
+        infoWrap.style.flex = '1';
+        infoWrap.appendChild(preview);
+        infoWrap.appendChild(meta);
+
+        const removeBtn = document.createElement('button');
+        removeBtn.className = 'announcement-remove-btn';
+        removeBtn.type = 'button';
+        removeBtn.innerText = '✗';
+        removeBtn.addEventListener('click', () => deleteAnnouncement(item.id));
+
+        row.appendChild(infoWrap);
+        row.appendChild(removeBtn);
+        announcementList.appendChild(row);
+    });
+}
+
+function sanitizeRichHtml(input) {
+    const template = document.createElement('template');
+    template.innerHTML = input || '';
+
+    const allowed = new Set(['B', 'STRONG', 'I', 'EM', 'U', 'BR', 'P', 'DIV', 'UL', 'OL', 'LI', 'SPAN']);
+
+    function cleanNode(node) {
+        if (node.nodeType === Node.TEXT_NODE) return;
+        if (node.nodeType !== Node.ELEMENT_NODE) {
+            node.remove();
+            return;
+        }
+
+        if (!allowed.has(node.tagName)) {
+            const parent = node.parentNode;
+            while (node.firstChild) {
+                parent.insertBefore(node.firstChild, node);
+            }
+            parent.removeChild(node);
+            return;
+        }
+
+        Array.from(node.attributes).forEach((attr) => node.removeAttribute(attr.name));
+        Array.from(node.childNodes).forEach(cleanNode);
+    }
+
+    Array.from(template.content.childNodes).forEach(cleanNode);
+    return template.innerHTML.trim();
+}
+
+function stripHtml(html) {
+    const temp = document.createElement('div');
+    temp.innerHTML = html || '';
+    return temp.textContent || temp.innerText || '';
 }
 
 // ------ TASKS LOGIC ------
@@ -237,6 +348,10 @@ function saveTasks() {
     localStorage.setItem('kioskTasks', JSON.stringify(tasks));
 }
 
+function saveAnnouncements() {
+    localStorage.setItem('kioskAnnouncements', JSON.stringify(announcements));
+}
+
 function loadTasks() {
     const saved = localStorage.getItem('kioskTasks');
     if (saved) {
@@ -244,6 +359,17 @@ function loadTasks() {
             tasks = JSON.parse(saved);
         } catch (e) {
             tasks = [];
+        }
+    }
+}
+
+function loadAnnouncements() {
+    const saved = localStorage.getItem('kioskAnnouncements');
+    if (saved) {
+        try {
+            announcements = JSON.parse(saved);
+        } catch (e) {
+            announcements = [];
         }
     }
 }

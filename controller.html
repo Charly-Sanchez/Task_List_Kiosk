@@ -23,24 +23,47 @@
         </div>
 
         <div id="tab-anuncios" class="tab-content active">
-            <h3 class="neon-text" style="margin-bottom:15px">Proyectar Anuncio</h3>
-            <textarea id="announcement-input" class="cyber-textarea" placeholder="Escribe algo para proyectar... (Soporta Emojis 🚀)"></textarea>
-            
+            <h3 class="neon-text" style="margin-bottom:15px">Editor de Anuncios</h3>
+
+            <div class="editor-toolbar">
+                <button type="button" class="cyber-button-small format-btn" data-cmd="bold">B</button>
+                <button type="button" class="cyber-button-small format-btn" data-cmd="italic">I</button>
+                <button type="button" class="cyber-button-small format-btn" data-cmd="underline">U</button>
+            </div>
+
+            <div id="announcement-editor" class="rich-editor" contenteditable="true" spellcheck="true" data-placeholder="Escribe el anuncio aqui..."></div>
+
             <div class="controls-row">
-                <label>Alineación:</label>
+                <label>Alineacion:</label>
                 <select id="align-select" class="cyber-select" style="margin-bottom:0px">
                     <option value="center">Centro</option>
                     <option value="left">Izquierda</option>
                     <option value="right">Derecha</option>
                 </select>
             </div>
-            
+
             <div class="controls-row">
-                <label>Tamaño Texto:</label>
+                <label>Fuente:</label>
+                <select id="font-select" class="cyber-select" style="margin-bottom:0px">
+                    <option value="Orbitron">Orbitron</option>
+                    <option value="Rajdhani">Rajdhani</option>
+                    <option value="Arial">Arial</option>
+                    <option value="Georgia">Georgia</option>
+                    <option value="Tahoma">Tahoma</option>
+                    <option value="Verdana">Verdana</option>
+                </select>
+            </div>
+
+            <div class="controls-row">
+                <label>Tamano Texto:</label>
                 <input type="range" id="size-slider" min="2" max="15" value="6" class="cyber-slider">
             </div>
 
-            <button id="send-announcement" class="cyber-button full-width mt-10"><span class="btn-text">PROYECTAR ANUNCIO</span></button>
+            <button id="add-announcement-btn" class="cyber-button full-width"><span class="btn-text">AGREGAR A COLA</span></button>
+
+            <div id="announcement-list" class="announcement-list"></div>
+
+            <button id="send-announcements" class="cyber-button secondary full-width mt-10"><span class="btn-text">PROYECTAR ANUNCIOS</span></button>
         </div>
 
         <div id="tab-tareas" class="tab-content hidden">

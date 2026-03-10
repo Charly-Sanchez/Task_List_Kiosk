@@ -404,3 +404,111 @@ h1, h2, h3, .cyber-title, .neon-text, .glitch {
 }
 .task-actions button.del-btn { color: #ff3333; }
 .task-actions button.check-btn { color: var(--neon-green); }
+
+.editor-toolbar {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+.format-btn {
+    min-width: 52px;
+    padding: 10px;
+}
+
+.rich-editor {
+    width: 100%;
+    min-height: 140px;
+    padding: 15px;
+    margin-bottom: 15px;
+    background: rgba(0, 0, 0, 0.45);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 5px;
+    color: #fff;
+    font-size: 1.15rem;
+    line-height: 1.35;
+}
+
+.rich-editor:focus {
+    border-color: var(--neon-blue);
+    outline: none;
+    box-shadow: 0 0 10px rgba(0, 243, 255, 0.2);
+}
+
+.rich-editor:empty::before {
+    content: attr(data-placeholder);
+    color: #7a7a7a;
+}
+
+.announcement-list {
+    margin-top: 15px;
+    max-height: 220px;
+    overflow-y: auto;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 6px;
+    padding: 8px;
+}
+
+.announcement-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px;
+    margin-bottom: 8px;
+    border-left: 3px solid var(--neon-pink);
+    background: rgba(255, 0, 234, 0.07);
+    border-radius: 4px;
+}
+
+.announcement-item:last-child {
+    margin-bottom: 0;
+}
+
+.announcement-preview {
+    flex: 1;
+    color: #d6d6d6;
+    font-size: 1rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.announcement-meta {
+    color: #8f8f8f;
+    font-size: 0.85rem;
+}
+
+.announcement-remove-btn {
+    border: none;
+    background: transparent;
+    color: #ff4a4a;
+    font-size: 1.2rem;
+    cursor: pointer;
+}
+
+.task-card {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.task-index {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    border: 2px solid var(--neon-blue);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Orbitron', sans-serif;
+    font-size: 1.2rem;
+}
+
+.task-card.completed .task-index {
+    border-color: var(--neon-green);
+}
+
+.task-text {
+    flex: 1;
+}
