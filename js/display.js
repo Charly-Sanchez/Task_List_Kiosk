@@ -1,18 +1,27 @@
-// Generate a random ID for the TV so the user can connect
+// Generate a random ID for the TV so controllers can connect.
 const tvId = 'TV-' + Math.floor(Math.random() * 10000).toString().padStart(4, '0');
 let peer = null;
+
 const ANNOUNCEMENT_ROTATION_MS = 5000;
 const TASKS_PER_PAGE = 7;
 const TASK_LOOP_TARGET = 3;
+const MIN_ANNOUNCEMENT_SIZE_REM = 1.2;
 
 let announcementRotationTimer = null;
+let announcementFadeTimeout = null;
 let announcementQueue = [];
+let currentAnnouncement = null;
+
 let tasksQueue = [];
 let taskPages = [];
 let currentTaskPageIndex = 0;
 let taskLoopCount = 0;
-let taskRollIterationHandler = null;
-let announcementFadeTimeout = null;
+let taskRollRafId = null;
+let taskRollLastTs = 0;
+let taskOffsetPx = 0;
+let taskSetHeightPx = 0;
+const TASK_SPEED_PX_PER_SEC = 20;
+
 const activeConnections = [];
 
 // DOM Elements
@@ -20,39 +29,34 @@ const connectionScreen = document.getElementById('connection-screen');
 const appContent = document.getElementById('app-content');
 const announcementLayer = document.getElementById('announcement-layer');
 const tasksLayer = document.getElementById('tasks-layer');
+const announcementBox = document.getElementById('announcement-box');
 const announcementText = document.getElementById('announcement-text');
 const tvTasks = document.getElementById('tv-tasks');
 const myIdElement = document.getElementById('my-id');
 const tvIdCornerElement = document.getElementById('tv-id-corner');
 
-// Initialize PeerJS
 function initDisplay() {
     peer = new Peer(tvId);
 
     peer.on('open', (id) => {
         myIdElement.innerText = id;
         tvIdCornerElement.innerText = `TV ID: ${id}`;
-        
-        // Generate QR code pointing to controller with the TV ID as query param
-        // If hosted on gh-pages, this allows scanning to auto-connect (future enhancement)
+
         const currentUrl = window.location.href;
         const controllerUrl = currentUrl.replace('display.html', 'controller.html') + '?id=' + id;
-        
+
         new QRCode(document.getElementById('qrcode'), {
             text: controllerUrl,
             width: 256,
             height: 256,
-            colorDark : "#4f6178",
-            colorLight : "#ffffff",
-            correctLevel : QRCode.CorrectLevel.H
+            colorDark: '#4f6178',
+            colorLight: '#ffffff',
+            correctLevel: QRCode.CorrectLevel.H
         });
     });
 
     peer.on('connection', (conn) => {
-        console.log("Connected to controller:", conn.peer);
         activeConnections.push(conn);
-        
-        // Hide connection screen and show app content when connected
         connectionScreen.classList.add('hidden');
         appContent.classList.remove('hidden');
         syncStateToConnection(conn);
@@ -64,18 +68,36 @@ function initDisplay() {
         conn.on('close', () => {
             const index = activeConnections.indexOf(conn);
             if (index >= 0) activeConnections.splice(index, 1);
-            console.log("Connection closed");
         });
     });
 
     peer.on('error', (err) => {
-        console.error("PeerJS error:", err);
+        console.error('PeerJS error:', err);
+    });
+
+    window.addEventListener('resize', () => {
+        if (currentAnnouncement) {
+            fitAnnouncementText(currentAnnouncement.size || 6);
+        }
     });
 }
 
 function handleIncomingData(data, sourceConn) {
     if (!data || !data.type) return;
 
+    if (data.type === 'announcements') {
+        showAnnouncements(Array.isArray(data.announcements) ? data.announcements : []);
+        broadcastState(sourceConn);
+        return;
+    }
+
+    if (data.type === 'tasks') {
+        showTasks(Array.isArray(data.tasks) ? data.tasks : []);
+        broadcastState(sourceConn);
+        return;
+    }
+
+    // Backward compatibility for older payloads.
     if (data.type === 'announcement') {
         showAnnouncements([
             {
@@ -85,12 +107,6 @@ function handleIncomingData(data, sourceConn) {
                 fontFamily: 'Orbitron'
             }
         ]);
-    } else if (data.type === 'announcements') {
-        showAnnouncements(Array.isArray(data.announcements) ? data.announcements : []);
-        broadcastState(sourceConn);
-    } else if (data.type === 'tasks') {
-        showTasks(data.tasks);
-        broadcastState(sourceConn);
     }
 }
 
@@ -102,103 +118,106 @@ function showAnnouncements(items) {
     announcementLayer.classList.remove('hidden');
 
     if (announcementQueue.length === 0) {
+        currentAnnouncement = null;
         announcementText.innerText = 'Sin anuncios para mostrar';
         announcementText.className = 'text-glow align-center';
+        announcementText.style.fontFamily = 'Orbitron, sans-serif';
         announcementText.style.fontSize = '4rem';
-            renderAnnouncement(announcementQueue[index], false);
         stopAnnouncementRotation();
         return;
     }
 
     let index = 0;
-                    renderAnnouncement(announcementQueue[index], true);
-                }, ANNOUNCEMENT_ROTATION_MS);
+    renderAnnouncement(announcementQueue[index], false);
+
     stopAnnouncementRotation();
     if (announcementQueue.length > 1) {
         announcementRotationTimer = setInterval(() => {
-        function renderAnnouncement(item, smooth) {
-            if (!smooth) {
-                applyAnnouncement(item);
-                return;
-            }
+            index = (index + 1) % announcementQueue.length;
+            renderAnnouncement(announcementQueue[index], true);
+        }, ANNOUNCEMENT_ROTATION_MS);
+    }
+}
 
-            if (announcementFadeTimeout) {
-                clearTimeout(announcementFadeTimeout);
-            }
+function renderAnnouncement(item, smooth) {
+    currentAnnouncement = item;
 
-            announcementText.classList.add('fade-out');
-            announcementFadeTimeout = setTimeout(() => {
-                applyAnnouncement(item);
-                announcementText.classList.remove('fade-out');
-            }, 260);
-        }
+    if (!smooth) {
+        applyAnnouncement(item);
+        return;
+    }
 
-        function applyAnnouncement(item) {
-            announcementText.className = 'text-glow';
-            announcementText.classList.add('align-' + (item.align || 'center'));
-            announcementText.style.fontSize = `${Number(item.size) || 6}rem`;
-            announcementText.style.fontFamily = `${item.fontFamily || 'Orbitron'}, sans-serif`;
-            announcementText.innerHTML = item.html;
-function renderAnnouncement(item) {
+    if (announcementFadeTimeout) {
+        clearTimeout(announcementFadeTimeout);
+    }
+
+    announcementText.classList.add('fade-out');
+    announcementFadeTimeout = setTimeout(() => {
+        applyAnnouncement(item);
+        announcementText.classList.remove('fade-out');
+    }, 260);
+}
+
+function applyAnnouncement(item) {
     announcementText.className = 'text-glow';
     announcementText.classList.add('align-' + (item.align || 'center'));
-    announcementText.style.fontSize = `${Number(item.size) || 6}rem`;
     announcementText.style.fontFamily = `${item.fontFamily || 'Orbitron'}, sans-serif`;
     announcementText.innerHTML = item.html;
+
+    fitAnnouncementText(Number(item.size) || 6);
 }
 
-function showAnnouncement(text, align, size) {
-    showAnnouncements([
-        {
-            html: escapeHtml(text || ''),
-            align: align,
-            size: Number(size) || 6,
-            fontFamily: 'Orbitron'
+function fitAnnouncementText(preferredRem) {
+    if (!announcementBox || !announcementText) return;
+
+    const rootFont = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+    const maxPx = Math.max(MIN_ANNOUNCEMENT_SIZE_REM * rootFont, preferredRem * rootFont);
+    const minPx = MIN_ANNOUNCEMENT_SIZE_REM * rootFont;
+
+    let low = minPx;
+    let high = maxPx;
+    let best = minPx;
+
+    while (low <= high) {
+        const mid = Math.floor((low + high) / 2);
+        announcementText.style.fontSize = `${mid}px`;
+
+        const fitsWidth = announcementText.scrollWidth <= announcementBox.clientWidth;
+        const fitsHeight = announcementText.scrollHeight <= announcementBox.clientHeight;
+
+        if (fitsWidth && fitsHeight) {
+            best = mid;
+            low = mid + 1;
+        } else {
+            high = mid - 1;
         }
-            taskPages = chunkTasks(tasksQueue, TASKS_PER_PAGE);
-            currentTaskPageIndex = 0;
-            startTaskPageRoll();
+    }
+
+    announcementText.style.fontSize = `${best}px`;
 }
 
-        function startTaskPageRoll() {
-            const currentPage = taskPages[currentTaskPageIndex] || [];
-            renderTaskRoulette(currentPage);
-            taskLoopCount = 0;
-        }
-
-        function renderTaskRoulette(tasks) {
+function showTasks(tasks) {
     stopAnnouncementRotation();
-    tasksQueue = Array.isArray(tasks) ? tasks : [];
+    tasksQueue = tasks;
 
-    tasksLayer.classList.add('hidden');
     announcementLayer.classList.add('hidden');
     tasksLayer.classList.remove('hidden');
 
     if (tasksQueue.length === 0) {
-        tvTasks.innerHTML = '<p style="font-size: 2rem; color: #666; font-family: Orbitron;">NO HAY TAREAS PENDIENTES</p>';
+        tvTasks.innerHTML = '<p style="font-size:2rem;color:#666;font-family:Orbitron;">NO HAY TAREAS PENDIENTES</p>';
         stopTaskRoll();
         return;
     }
 
-    renderTaskRoulette(tasksQueue);
-            const duration = Math.max(7, tasks.length * 1.35);
-
-function syncStateToConnection(conn) {
-                const distance = firstSet.offsetHeight;
-    conn.send({
-        type: 'sync_state',
-        announcements: announcementQueue,
-                attachTaskLoopListener();
-        tasks: tasksQueue
-    });
+    taskPages = chunkTasks(tasksQueue, TASKS_PER_PAGE);
+    currentTaskPageIndex = 0;
+    startTaskPageRoll();
 }
 
-function broadcastState(excludeConn) {
-    activeConnections.forEach((conn) => {
-        if (conn !== excludeConn && conn.open) {
-            syncStateToConnection(conn);
-        }
-    });
+function startTaskPageRoll() {
+    const currentPage = taskPages[currentTaskPageIndex] || [];
+    renderTaskRoulette(currentPage);
+    taskLoopCount = 0;
 }
 
 function renderTaskRoulette(tasks) {
@@ -216,13 +235,12 @@ function renderTaskRoulette(tasks) {
     tvTasks.appendChild(firstSet);
     tvTasks.appendChild(secondSet);
 
-    const duration = Math.max(ROTATION_MS / 1000, tasks.length * 2.8);
-
     requestAnimationFrame(() => {
-        const distance = firstSet.offsetWidth;
-        tvTasks.style.setProperty('--roll-distance', `-${distance}px`);
-        tvTasks.style.animationDuration = `${duration}s`;
-        tvTasks.classList.add('rolling');
+        taskSetHeightPx = firstSet.offsetHeight;
+        taskOffsetPx = 0;
+        taskRollLastTs = 0;
+        tvTasks.style.transform = 'translateY(0px)';
+        taskRollRafId = requestAnimationFrame(stepTaskMarquee);
     });
 }
 
@@ -243,52 +261,87 @@ function createTaskCard(task, orderNumber) {
     return card;
 }
 
+function stepTaskMarquee(timestamp) {
+    if (!taskRollLastTs) {
+        taskRollLastTs = timestamp;
+    }
+
+    const dt = (timestamp - taskRollLastTs) / 1000;
+    taskRollLastTs = timestamp;
+    taskOffsetPx += TASK_SPEED_PX_PER_SEC * dt;
+
+    if (taskSetHeightPx > 0 && taskOffsetPx >= taskSetHeightPx) {
+        taskOffsetPx -= taskSetHeightPx;
+        taskLoopCount += 1;
+        handleTaskLoopCompleted();
+    }
+
+    tvTasks.style.transform = `translateY(-${taskOffsetPx}px)`;
+    taskRollRafId = requestAnimationFrame(stepTaskMarquee);
+}
+
+function handleTaskLoopCompleted() {
+    if (taskLoopCount < TASK_LOOP_TARGET) return;
+
+    taskLoopCount = 0;
+
+    if (taskPages.length <= 1) {
+        if (announcementQueue.length > 0) {
+            showAnnouncements(announcementQueue);
+        }
+        return;
+    }
+
+    currentTaskPageIndex = (currentTaskPageIndex + 1) % taskPages.length;
+    tvTasks.classList.add('soft-hidden');
+
+    setTimeout(() => {
+        startTaskPageRoll();
+        tvTasks.classList.remove('soft-hidden');
+    }, 300);
+}
+
 function stopAnnouncementRotation() {
     if (announcementRotationTimer) {
         clearInterval(announcementRotationTimer);
         announcementRotationTimer = null;
     }
+
+    if (announcementFadeTimeout) {
+        clearTimeout(announcementFadeTimeout);
+        announcementFadeTimeout = null;
+    }
 }
 
 function stopTaskRoll() {
-    if (taskRollIterationHandler) {
-        tvTasks.removeEventListener('animationiteration', taskRollIterationHandler);
-        taskRollIterationHandler = null;
+    if (taskRollRafId) {
+        cancelAnimationFrame(taskRollRafId);
+        taskRollRafId = null;
     }
 
-    tvTasks.classList.remove('rolling');
     tvTasks.classList.remove('soft-hidden');
-    tvTasks.style.removeProperty('animation-duration');
-    tvTasks.style.removeProperty('--roll-distance');
+    tvTasks.style.transform = 'translateY(0px)';
+    taskRollLastTs = 0;
+    taskOffsetPx = 0;
+    taskSetHeightPx = 0;
 }
 
-function attachTaskLoopListener() {
-    if (taskRollIterationHandler) {
-        tvTasks.removeEventListener('animationiteration', taskRollIterationHandler);
-    }
+function syncStateToConnection(conn) {
+    if (!conn || !conn.open) return;
 
-    taskRollIterationHandler = () => {
-        taskLoopCount += 1;
-        if (taskLoopCount < TASK_LOOP_TARGET) return;
+    conn.send({
+        type: 'sync_state',
+        announcements: announcementQueue,
+        tasks: tasksQueue
+    });
+}
 
-        taskLoopCount = 0;
-        if (taskPages.length <= 1) {
-            if (announcementQueue.length > 0) {
-                showAnnouncements(announcementQueue);
-            }
-            return;
+function broadcastState(excludeConn) {
+    activeConnections.forEach((conn) => {
+        if (conn !== excludeConn && conn.open) {
+            syncStateToConnection(conn);
         }
-
-        currentTaskPageIndex = (currentTaskPageIndex + 1) % taskPages.length;
-        tvTasks.classList.add('soft-hidden');
-
-        setTimeout(() => {
-            startTaskPageRoll();
-            tvTasks.classList.remove('soft-hidden');
-        }, 300);
-    };
-
-    tvTasks.addEventListener('animationiteration', taskRollIterationHandler);
+    });
 }
 
 function chunkTasks(items, size) {
@@ -305,5 +358,4 @@ function escapeHtml(text) {
     return temp.innerHTML;
 }
 
-// Start app
 window.onload = initDisplay;
