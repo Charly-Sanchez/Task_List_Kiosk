@@ -1,11 +1,11 @@
 :root {
-    --bg-color: #050505;
-    --neon-blue: #00f3ff;
-    --neon-pink: #ff00ea;
-    --neon-green: #39ff14;
-    --text-primary: #e0e0e0;
-    --glass-bg: rgba(20, 20, 25, 0.7);
-    --border-color: rgba(0, 243, 255, 0.3);
+    --bg-color: #111318;
+    --neon-blue: #7a8da6;
+    --neon-pink: #a28a97;
+    --neon-green: #7a9b74;
+    --text-primary: #e7e9ee;
+    --glass-bg: rgba(32, 36, 45, 0.88);
+    --border-color: rgba(142, 156, 178, 0.35);
 }
 
 * {
@@ -19,7 +19,7 @@ body {
     color: var(--text-primary);
     font-family: 'Rajdhani', sans-serif;
     overflow-x: hidden;
-    background-image: radial-gradient(circle at 50% 50%, #111 0%, #000 100%);
+    background-image: radial-gradient(circle at 50% 50%, #1a1f2a 0%, #111318 100%);
     min-height: 100vh;
 }
 
@@ -32,7 +32,6 @@ h1, h2, h3, .cyber-title, .neon-text, .glitch {
 .glitch {
     font-size: 3rem;
     color: var(--neon-blue);
-    text-shadow: 0 0 10px var(--neon-blue), 0 0 20px var(--neon-blue);
     margin-bottom: 2rem;
     text-align: center;
 }
@@ -60,36 +59,36 @@ h1, h2, h3, .cyber-title, .neon-text, .glitch {
     text-decoration: none;
     display: inline-block;
     text-align: center;
-    box-shadow: 0 0 10px rgba(0, 243, 255, 0.2) inset;
+    box-shadow: none;
     border-radius: 4px;
 }
 
 .cyber-button:hover, .cyber-button-small:hover, .tab-btn.active {
-    background: rgba(0, 243, 255, 0.1);
-    box-shadow: 0 0 15px var(--neon-blue);
-    text-shadow: 0 0 5px var(--neon-blue);
+    background: rgba(122, 141, 166, 0.16);
+    box-shadow: none;
+    text-shadow: none;
 }
 
 .cyber-button.secondary {
     color: var(--neon-pink);
     border-color: var(--neon-pink);
-    box-shadow: 0 0 10px rgba(255, 0, 234, 0.2) inset;
+    box-shadow: none;
 }
 .cyber-button.secondary:hover {
-    background: rgba(255, 0, 234, 0.1);
-    box-shadow: 0 0 15px var(--neon-pink);
-    text-shadow: 0 0 5px var(--neon-pink);
+    background: rgba(162, 138, 151, 0.2);
+    box-shadow: none;
+    text-shadow: none;
 }
 
 .cyber-button.danger {
     color: #ff3333;
     border-color: #ff3333;
-    box-shadow: 0 0 10px rgba(255, 51, 51, 0.2) inset;
+    box-shadow: none;
 }
 .cyber-button.danger:hover {
     background: rgba(255, 51, 51, 0.1);
-    box-shadow: 0 0 15px #ff3333;
-    text-shadow: 0 0 5px #ff3333;
+    box-shadow: none;
+    text-shadow: none;
 }
 
 .full-width { width: 100%; }
@@ -153,7 +152,7 @@ h1, h2, h3, .cyber-title, .neon-text, .glitch {
     padding: 20px;
     border-radius: 10px;
     margin: 20px 0;
-    box-shadow: 0 0 30px var(--neon-blue);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
 }
 #qrcode img {
     margin: 0 auto;
@@ -193,7 +192,7 @@ h1, h2, h3, .cyber-title, .neon-text, .glitch {
 .text-glow {
     font-size: 6rem;
     line-height: 1.2;
-    text-shadow: 0 0 20px var(--neon-blue);
+    text-shadow: none;
     word-wrap: break-word;
     color: white;
 }
@@ -211,32 +210,85 @@ h1, h2, h3, .cyber-title, .neon-text, .glitch {
     font-size: 4rem;
     color: var(--neon-blue);
     margin-bottom: 3rem;
-    border-bottom: 2px solid var(--neon-blue);
+    border-bottom: 2px solid rgba(122, 141, 166, 0.5);
     padding-bottom: 10px;
 }
 
+
+.tasks-viewport {
+    position: relative;
+    width: 100%;
+    flex: 1;
+    min-height: 260px;
+    max-height: 340px;
+    overflow: hidden;
+    border: 1px solid rgba(142, 156, 178, 0.45);
+    border-radius: 12px;
+    background: linear-gradient(90deg, rgba(20, 24, 32, 0.94), rgba(54, 66, 84, 0.5), rgba(20, 24, 32, 0.94));
+}
+
+.tasks-center-marker {
+    position: absolute;
+    top: 14px;
+    bottom: 14px;
+    left: 50%;
+    width: 6px;
+    transform: translateX(-50%);
+    background: linear-gradient(to bottom, transparent, var(--neon-pink), transparent);
+    box-shadow: none;
+    z-index: 2;
+    pointer-events: none;
+}
+
 .tasks-container {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
-    gap: 30px;
-    overflow-y: hidden;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    padding: 0 24px;
+    width: max-content;
+    will-change: transform;
+}
+
+.tasks-track-set {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    padding-right: 24px;
+}
+
+.tasks-container.rolling {
+    animation-name: task-roulette-roll;
+    animation-timing-function: linear;
+    animation-iteration-count: infinite;
 }
 
 .task-card {
-    background: rgba(0, 243, 255, 0.05);
+    min-width: 500px;
+    max-width: 500px;
+    background: rgba(255, 255, 255, 0.05);
     border-left: 8px solid var(--neon-blue);
-    padding: 30px;
-    font-size: 2.2rem;
-    box-shadow: 0 0 15px rgba(0, 243, 255, 0.1);
-    transition: transform 0.3s;
+    border-right: 1px solid rgba(122, 141, 166, 0.2);
+    padding: 28px;
+    font-size: 2.1rem;
+    box-shadow: none;
     border-radius: 0 10px 10px 0;
 }
 
 .task-card.completed {
     border-left-color: var(--neon-green);
-    opacity: 0.5;
+    opacity: 0.75;
     text-decoration: line-through;
-    box-shadow: 0 0 15px rgba(57, 255, 20, 0.1);
+    box-shadow: none;
+}
+
+@keyframes task-roulette-roll {
+    from {
+        transform: translateX(0);
+    }
+    to {
+        transform: translateX(var(--roll-distance, -50%));
+    }
 }
 
 .status-indicator {
@@ -245,7 +297,7 @@ h1, h2, h3, .cyber-title, .neon-text, .glitch {
     right: 40px;
     color: var(--neon-green);
     font-family: 'Orbitron';
-    text-shadow: 0 0 10px var(--neon-green);
+    text-shadow: none;
     font-size: 1.5rem;
 }
 
@@ -280,7 +332,7 @@ h1, h2, h3, .cyber-title, .neon-text, .glitch {
 .cyber-input:focus, .cyber-textarea:focus, .cyber-select:focus {
     border-color: var(--neon-blue);
     outline: none;
-    box-shadow: 0 0 10px rgba(0, 243, 255, 0.2);
+    box-shadow: none;
 }
 
 .cyber-textarea {
@@ -348,7 +400,7 @@ h1, h2, h3, .cyber-title, .neon-text, .glitch {
     border-radius: 50%;
     background: var(--neon-blue);
     cursor: pointer;
-    box-shadow: 0 0 10px var(--neon-blue);
+    box-shadow: none;
 }
 
 .task-add-row {
@@ -432,7 +484,7 @@ h1, h2, h3, .cyber-title, .neon-text, .glitch {
 .rich-editor:focus {
     border-color: var(--neon-blue);
     outline: none;
-    box-shadow: 0 0 10px rgba(0, 243, 255, 0.2);
+    box-shadow: none;
 }
 
 .rich-editor:empty::before {

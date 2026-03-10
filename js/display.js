@@ -2,10 +2,8 @@
 const tvId = 'TV-' + Math.floor(Math.random() * 10000).toString().padStart(4, '0');
 let peer = null;
 const ROTATION_MS = 10000;
-const TASKS_PER_PAGE = 8;
 
 let announcementRotationTimer = null;
-let taskRotationTimer = null;
 let announcementQueue = [];
 let tasksQueue = [];
 
@@ -34,7 +32,7 @@ function initDisplay() {
             text: controllerUrl,
             width: 256,
             height: 256,
-            colorDark : "#00f3ff",
+            colorDark : "#4f6178",
             colorLight : "#ffffff",
             correctLevel : QRCode.CorrectLevel.H
         });
@@ -138,50 +136,53 @@ function showTasks(tasks) {
 
     if (tasksQueue.length === 0) {
         tvTasks.innerHTML = '<p style="font-size: 2rem; color: #666; font-family: Orbitron;">NO HAY TAREAS PENDIENTES</p>';
-        stopTaskRotation();
+        stopTaskRoll();
         return;
     }
 
-    const pages = chunkTasks(tasksQueue, TASKS_PER_PAGE);
-    let pageIndex = 0;
-    renderTaskPage(pages[pageIndex]);
-
-    stopTaskRotation();
-    if (pages.length > 1) {
-        taskRotationTimer = setInterval(() => {
-            pageIndex = (pageIndex + 1) % pages.length;
-            renderTaskPage(pages[pageIndex]);
-        }, ROTATION_MS);
-    }
+    renderTaskRoulette(tasksQueue);
 }
 
-function renderTaskPage(pageTasks) {
+function renderTaskRoulette(tasks) {
     tvTasks.innerHTML = '';
+    stopTaskRoll();
 
-    pageTasks.forEach((task, index) => {
-        const card = document.createElement('div');
-        card.className = 'task-card' + (task.completed ? ' completed' : '');
+    const firstSet = document.createElement('div');
+    firstSet.className = 'tasks-track-set';
 
-        const order = document.createElement('div');
-        order.className = 'task-index';
-        order.innerText = task.completed ? 'OK' : String(index + 1).padStart(2, '0');
+    tasks.forEach((task, index) => {
+        firstSet.appendChild(createTaskCard(task, index + 1));
+    });
 
-        const text = document.createElement('div');
-        text.className = 'task-text';
-        text.innerText = task.text;
+    const secondSet = firstSet.cloneNode(true);
+    tvTasks.appendChild(firstSet);
+    tvTasks.appendChild(secondSet);
 
-        card.appendChild(order);
-        card.appendChild(text);
-        tvTasks.appendChild(card);
+    const duration = Math.max(ROTATION_MS / 1000, tasks.length * 2.8);
+
+    requestAnimationFrame(() => {
+        const distance = firstSet.offsetWidth;
+        tvTasks.style.setProperty('--roll-distance', `-${distance}px`);
+        tvTasks.style.animationDuration = `${duration}s`;
+        tvTasks.classList.add('rolling');
     });
 }
 
-function chunkTasks(items, size) {
-    const output = [];
-    for (let i = 0; i < items.length; i += size) {
-        output.push(items.slice(i, i + size));
-    }
-    return output;
+function createTaskCard(task, orderNumber) {
+    const card = document.createElement('div');
+    card.className = 'task-card' + (task.completed ? ' completed' : '');
+
+    const order = document.createElement('div');
+    order.className = 'task-index';
+    order.innerText = task.completed ? 'OK' : String(orderNumber).padStart(2, '0');
+
+    const text = document.createElement('div');
+    text.className = 'task-text';
+    text.innerText = task.text;
+
+    card.appendChild(order);
+    card.appendChild(text);
+    return card;
 }
 
 function stopAnnouncementRotation() {
@@ -191,11 +192,10 @@ function stopAnnouncementRotation() {
     }
 }
 
-function stopTaskRotation() {
-    if (taskRotationTimer) {
-        clearInterval(taskRotationTimer);
-        taskRotationTimer = null;
-    }
+function stopTaskRoll() {
+    tvTasks.classList.remove('rolling');
+    tvTasks.style.removeProperty('animation-duration');
+    tvTasks.style.removeProperty('--roll-distance');
 }
 
 function escapeHtml(text) {
