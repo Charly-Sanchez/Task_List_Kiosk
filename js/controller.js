@@ -28,7 +28,6 @@ const tabContents = document.querySelectorAll('.tab-content');
 const announcementEditor = document.getElementById('announcement-editor');
 const alignSelect = document.getElementById('align-select');
 const fontSelect = document.getElementById('font-select');
-const sizeSlider = document.getElementById('size-slider');
 const sendAnnouncementsBtn = document.getElementById('send-announcements');
 const addAnnouncementBtn = document.getElementById('add-announcement-btn');
 const announcementList = document.getElementById('announcement-list');
@@ -190,14 +189,12 @@ async function addAnnouncement() {
         if (existing) {
             existing.html = html;
             existing.align = alignSelect.value;
-            existing.size = Number(sizeSlider.value);
             existing.fontFamily = fontSelect.value;
         } else {
             state.announcements.push({
                 id: targetId,
                 html,
                 align: alignSelect.value,
-                size: Number(sizeSlider.value),
                 fontFamily: fontSelect.value
             });
         }
@@ -225,7 +222,6 @@ function editAnnouncement(id) {
     announcementEditor.innerHTML = item.html || '';
     alignSelect.value = item.align || 'center';
     fontSelect.value = item.fontFamily || 'Orbitron';
-    sizeSlider.value = Number(item.size) || 6;
     addAnnouncementBtn.querySelector('.btn-text').innerText = 'GUARDAR EDICION';
 }
 
@@ -363,7 +359,7 @@ function renderAnnouncementQueue() {
 
         const meta = document.createElement('div');
         meta.className = 'announcement-meta';
-        meta.innerText = `#${index + 1} | ${item.fontFamily} | ${item.size}rem | ${item.align}`;
+        meta.innerText = `#${index + 1} | ${item.fontFamily} | Tamaño auto | ${item.align}`;
 
         const infoWrap = document.createElement('div');
         infoWrap.style.flex = '1';

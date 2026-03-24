@@ -7,6 +7,7 @@ import {
 const ANNOUNCEMENT_ROTATION_MS = 5000;
 const TASK_LOOP_TARGET = 3;
 const MIN_ANNOUNCEMENT_SIZE_REM = 1.2;
+const MAX_ANNOUNCEMENT_SIZE_REM = 18;
 const TASK_SPEED_PX_PER_SEC = 20;
 
 let announcementRotationTimer = null;
@@ -187,15 +188,19 @@ function applyAnnouncement(item) {
     announcementText.classList.add('align-' + (item.align || 'center'));
     announcementText.style.fontFamily = `${item.fontFamily || 'Orbitron'}, sans-serif`;
     announcementText.innerHTML = item.html;
-    fitAnnouncementText(Number(item.size) || 6);
+    fitAnnouncementText();
 }
 
-function fitAnnouncementText(preferredRem) {
+function fitAnnouncementText() {
     if (!announcementBox || !announcementText) return;
 
     const rootFont = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
-    const maxPx = Math.max(MIN_ANNOUNCEMENT_SIZE_REM * rootFont, preferredRem * rootFont);
+    const containerWidth = announcementBox.clientWidth || 0;
+    const containerHeight = announcementBox.clientHeight || 0;
     const minPx = MIN_ANNOUNCEMENT_SIZE_REM * rootFont;
+    const capByRem = MAX_ANNOUNCEMENT_SIZE_REM * rootFont;
+    const capByViewport = Math.max(minPx, Math.floor(Math.min(containerWidth * 0.6, containerHeight * 0.9)));
+    const maxPx = Math.max(minPx, Math.min(capByRem, capByViewport));
 
     let low = minPx;
     let high = maxPx;
