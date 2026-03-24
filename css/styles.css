@@ -24,7 +24,7 @@ body {
 }
 
 /* Avoid layout breaks with long words/URLs/user text. */
-h1, h2, h3, p, label, button, .cyber-input, .cyber-textarea, .rich-editor,
+h1, h2, h3, p, .cyber-input, .cyber-textarea, .rich-editor,
 .announcement-preview, .announcement-meta, .task-text, .mobile-task-item span,
 .tv-id-corner, .connection-id-display, .instructions {
     overflow-wrap: anywhere;
@@ -233,12 +233,14 @@ h1, h2, h3, .cyber-title, .neon-text, .glitch {
 
 .text-glow {
     font-size: 6rem;
-    line-height: 1.15;
+    line-height: 1.12;
     text-shadow: none;
     word-wrap: break-word;
     overflow-wrap: anywhere;
+    word-break: break-word;
     white-space: normal;
     display: block;
+    width: 100%;
     max-width: 100%;
     overflow: visible;
     color: white;
@@ -255,6 +257,12 @@ h1, h2, h3, .cyber-title, .neon-text, .glitch {
 .align-center { text-align: center; }
 .align-left { text-align: left; }
 .align-right { text-align: right; }
+
+.text-glow > * {
+    margin: 0;
+    padding: 0;
+    line-height: inherit;
+}
 
 #tasks-layer {
     display: flex;
@@ -424,14 +432,16 @@ h1, h2, h3, .cyber-title, .neon-text, .glitch {
     display: flex;
     justify-content: space-between;
     align-items: center;
+    gap: 12px;
     margin-bottom: 15px;
 }
 
 .controls-row label {
-    flex: 1;
+    flex: 0 0 120px;
     font-size: 1.1rem;
     color: #ccc;
-    min-width: 0;
+    word-break: normal;
+    overflow-wrap: normal;
 }
 
 .auto-size-badge {

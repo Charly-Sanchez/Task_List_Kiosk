@@ -6,7 +6,7 @@ import {
 
 const ANNOUNCEMENT_ROTATION_MS = 5000;
 const TASK_LOOP_TARGET = 3;
-const MIN_ANNOUNCEMENT_SIZE_REM = 0.7;
+const MIN_ANNOUNCEMENT_SIZE_REM = 0.45;
 const MAX_ANNOUNCEMENT_SIZE_PX = 1200;
 const TASK_SPEED_PX_PER_SEC = 20;
 
@@ -114,7 +114,7 @@ async function initDisplay() {
 
     window.addEventListener('resize', () => {
         if (currentAnnouncement) {
-            fitAnnouncementText(currentAnnouncement.size || 6);
+            scheduleAnnouncementFit();
         }
     });
 }
@@ -258,7 +258,17 @@ function fitAnnouncementText() {
     }
 
     // Keep a tiny visual safety margin to avoid edge clipping from font metrics.
-    announcementText.style.fontSize = `${Math.max(minPx, best - 0.5)}px`;
+    let safeSize = Math.max(minPx, best - 0.5);
+    announcementText.style.fontSize = `${safeSize}px`;
+
+    // Safety fallback: if edge cases still overflow at calculated size, step down softly.
+    while (
+        safeSize > minPx &&
+        (announcementText.scrollWidth > availableWidth || announcementText.scrollHeight > availableHeight)
+    ) {
+        safeSize -= 0.5;
+        announcementText.style.fontSize = `${safeSize}px`;
+    }
 }
 
 function showTasks(tasks) {
