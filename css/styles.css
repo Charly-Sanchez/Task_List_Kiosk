@@ -233,13 +233,14 @@ h1, h2, h3, .cyber-title, .neon-text, .glitch {
 
 .text-glow {
     font-size: 6rem;
-    line-height: 1.2;
+    line-height: 1.15;
     text-shadow: none;
     word-wrap: break-word;
     overflow-wrap: anywhere;
+    white-space: normal;
+    display: block;
     max-width: 100%;
-    max-height: 100%;
-    overflow: hidden;
+    overflow: visible;
     color: white;
     opacity: 1;
     transform: translateY(0);

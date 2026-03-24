@@ -6,14 +6,16 @@ import {
 
 const ANNOUNCEMENT_ROTATION_MS = 5000;
 const TASK_LOOP_TARGET = 3;
-const MIN_ANNOUNCEMENT_SIZE_REM = 1.2;
-const MAX_ANNOUNCEMENT_SIZE_REM = 18;
+const MIN_ANNOUNCEMENT_SIZE_REM = 0.7;
+const MAX_ANNOUNCEMENT_SIZE_PX = 1200;
 const TASK_SPEED_PX_PER_SEC = 20;
 
 let announcementRotationTimer = null;
 let announcementFadeTimeout = null;
 let announcementQueue = [];
 let currentAnnouncement = null;
+let announcementFitRafId = null;
+let announcementFitTimeoutId = null;
 
 let tasksQueue = [];
 let taskLoopCount = 0;
@@ -97,6 +99,14 @@ async function initDisplay() {
 
         connectionScreen.classList.add('hidden');
         appContent.classList.remove('hidden');
+
+        if (document.fonts && document.fonts.ready) {
+            document.fonts.ready.then(() => {
+                if (currentAnnouncement) {
+                    scheduleAnnouncementFit();
+                }
+            });
+        }
     } catch (error) {
         console.error(error);
         alert('No se pudo iniciar Firebase. Revisa js/firebase-config.js');
@@ -188,7 +198,30 @@ function applyAnnouncement(item) {
     announcementText.classList.add('align-' + (item.align || 'center'));
     announcementText.style.fontFamily = `${item.fontFamily || 'Orbitron'}, sans-serif`;
     announcementText.innerHTML = item.html;
-    fitAnnouncementText();
+    scheduleAnnouncementFit();
+}
+
+function scheduleAnnouncementFit() {
+    if (announcementFitRafId) {
+        cancelAnimationFrame(announcementFitRafId);
+        announcementFitRafId = null;
+    }
+
+    if (announcementFitTimeoutId) {
+        clearTimeout(announcementFitTimeoutId);
+        announcementFitTimeoutId = null;
+    }
+
+    announcementFitRafId = requestAnimationFrame(() => {
+        fitAnnouncementText();
+        announcementFitRafId = null;
+    });
+
+    // Font rendering can settle a bit later on some devices; refit once more.
+    announcementFitTimeoutId = setTimeout(() => {
+        fitAnnouncementText();
+        announcementFitTimeoutId = null;
+    }, 120);
 }
 
 function fitAnnouncementText() {
@@ -198,30 +231,34 @@ function fitAnnouncementText() {
     const containerWidth = announcementBox.clientWidth || 0;
     const containerHeight = announcementBox.clientHeight || 0;
     const minPx = MIN_ANNOUNCEMENT_SIZE_REM * rootFont;
-    const capByRem = MAX_ANNOUNCEMENT_SIZE_REM * rootFont;
-    const capByViewport = Math.max(minPx, Math.floor(Math.min(containerWidth * 0.6, containerHeight * 0.9)));
-    const maxPx = Math.max(minPx, Math.min(capByRem, capByViewport));
+    const maxPx = Math.max(minPx, Math.min(MAX_ANNOUNCEMENT_SIZE_PX, Math.max(containerWidth, containerHeight * 1.6)));
+
+    const availableWidth = Math.max(0, containerWidth - 2);
+    const availableHeight = Math.max(0, containerHeight - 2);
+
+    if (availableWidth <= 0 || availableHeight <= 0) return;
 
     let low = minPx;
     let high = maxPx;
     let best = minPx;
 
-    while (low <= high) {
-        const mid = Math.floor((low + high) / 2);
+    while ((high - low) > 0.5) {
+        const mid = (low + high) / 2;
         announcementText.style.fontSize = `${mid}px`;
 
-        const fitsWidth = announcementText.scrollWidth <= announcementBox.clientWidth;
-        const fitsHeight = announcementText.scrollHeight <= announcementBox.clientHeight;
+        const fitsWidth = announcementText.scrollWidth <= availableWidth;
+        const fitsHeight = announcementText.scrollHeight <= availableHeight;
 
         if (fitsWidth && fitsHeight) {
             best = mid;
-            low = mid + 1;
+            low = mid;
         } else {
-            high = mid - 1;
+            high = mid;
         }
     }
 
-    announcementText.style.fontSize = `${best}px`;
+    // Keep a tiny visual safety margin to avoid edge clipping from font metrics.
+    announcementText.style.fontSize = `${Math.max(minPx, best - 0.5)}px`;
 }
 
 function showTasks(tasks) {
@@ -362,6 +399,16 @@ function stopAnnouncementRotation() {
     if (announcementFadeTimeout) {
         clearTimeout(announcementFadeTimeout);
         announcementFadeTimeout = null;
+    }
+
+    if (announcementFitTimeoutId) {
+        clearTimeout(announcementFitTimeoutId);
+        announcementFitTimeoutId = null;
+    }
+
+    if (announcementFitRafId) {
+        cancelAnimationFrame(announcementFitRafId);
+        announcementFitRafId = null;
     }
 }
 
