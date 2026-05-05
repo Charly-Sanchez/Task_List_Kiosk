@@ -30,14 +30,12 @@ const alignSelect = document.getElementById('align-select');
 const fontSelect = document.getElementById('font-select');
 const sendAnnouncementsBtn = document.getElementById('send-announcements');
 const addAnnouncementBtn = document.getElementById('add-announcement-btn');
-const announcementList = document.getElementById('announcement-list');
 const formatBtns = document.querySelectorAll('.format-btn');
 
 const newTaskInput = document.getElementById('new-task-input');
 const addTaskBtn = document.getElementById('add-task-btn');
 const mobileTasksContainer = document.getElementById('mobile-tasks');
 const syncTasksBtn = document.getElementById('sync-tasks-btn');
-const historyList = document.getElementById('history-list');
 const resetKioskBtn = document.getElementById('reset-kiosk-btn');
 
 function initController() {
@@ -322,24 +320,7 @@ async function updateState(mutateFn) {
     }
 }
 
-async function handleResetKiosk() {
-    if (!currentTvId) {
-        alert('Conectate primero a una TV.');
-        return;
-    }
 
-    const ok = confirm('Esto borrara tareas, anuncios e historial. Continuar?');
-    if (!ok) return;
-
-    try {
-        await resetKioskState(currentTvId);
-        editingAnnouncementId = null;
-        addAnnouncementBtn.querySelector('.btn-text').innerText = 'AGREGAR A COLA';
-    } catch (error) {
-        console.error(error);
-        alert('No se pudo ejecutar el reset total.');
-    }
-}
 
 function renderAnnouncementQueue() {
     announcementList.innerHTML = '';
